@@ -28,16 +28,16 @@ def merge_into(k,v,block):
     merge_block = k
     blocks = []
     if re.findall('update', block):
-        blocks.append('var_sql_logical_delete_capture = update' + block.split('from',1)[0].split('update')[-1]+ '\n')
+        blocks.append('var_sql_logical_delete_capture = ' +"'" + 'update' + block.split('from',1)[0].split('update')[-1]+ '\n')
     if re.findall('set',block):
         blocks.append('set' +'\n'+ block.split('from',1)[-1].split('set')[-1].split('where')[0]+'\n')
     if re.findall('where',block):
         blocks.append('where' +'\n'+block.split('from',1)[-1].split('set')[-1].split('where')[-1]+'\n')
     if re.findall('from',block):
-        blocks.append(' from' +'\n'+ block.split('from',1)[-1].split('set')[0]+'\n')
+        blocks.append(' from' +'\n'+ block.split('from',1)[-1].split('set')[0]+'\n' + "'")
 
     converted = conf_map['as_block'] + v.format(merge_block) + ';' + '\n\n' + conf_map['sf_exe_m'] + '\n\n' \
-                +'\n'.join(blocks)+'\n'+conf_map['sf_exe_b']+ conf_map['sf_exe_e']
+               '\n'.join(blocks)+'\n'+conf_map['sf_exe_b']+ conf_map['sf_exe_e']
 
     return converted
     # else:

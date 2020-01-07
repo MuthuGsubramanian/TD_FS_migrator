@@ -16,28 +16,34 @@ def create_macro(k,v,block):
     pd = list(filter(lambda x: k in x, block))
     if len(pd)== 0:
         pd = list(filter(lambda x: '\ncreate   macro' in x, block))
-        macro_name = pd[0].split('(',1)[0].split('  ',2)[-1].split('\n')[0]
-        converted = v.format(macro_name.upper())
+        macro_name = re.findall(r'create macro(.+?)as',pd[0])[0].split('.')
+        converted = v.format(macro_name[0].upper(),macro_name[1].upper())
     else:
-        macro_name = pd[0].split('(', 1)[0].split('  ', 2)[-1].split('\n')[0]
-        converted = v.format(macro_name.upper())
+        macro_name = re.findall(r'create macro(.+?)as',pd[0])[0].split('.')
+        converted = v.format(macro_name[0].upper(),macro_name[1].upper())
     return converted
 
 
 def merge_into(k,v,block):
-    merge_block = block[0].split('(',1)[1]
-    d = ''.join(block).split("  d")[-1]
-    update = 'var_sql_logical_delete_capture = ' +d.split(('set'))[0].split('from')[0]
-    if 'set' in d:
-        set = 'set\n' + d.split(('set'))[1]
-        from_b = 'from' +"'"+ d.split(('set'))[0].split('from')[1] +"'"
-        converted = conf_map['as_block'] + v.format(merge_block) + ';' \
-                    + '\n\n' + conf_map['sf_exe_b'] + '\n\n' + update + set + from_b +conf_map['sf_exe_m']+ conf_map['sf_exe_e']
-    else:
-        converted =conf_map['as_block']+ v.format(merge_block)+';' \
-               +'\n\n'+ conf_map['sf_exe_b'] + '\n\n' + update + conf_map['sf_exe_e']
+    merge_block = k
+    blocks = []
+    if re.findall('update', block):
+        blocks.append('var_sql_logical_delete_capture = update' +block.split('from',1)[0].split('update')[-1])
+    if re.findall('from',block):
+        blocks.append(' from' + block.split('from',1)[-1].split('set')[0])
+    if re.findall('set',block):
+        blocks.append('set' + block.split('from',1)[-1].split('set')[-1].split('where')[0])
+    if re.findall('where',block):
+        blocks.append(block.split('from',1)[-1].split('set')[-1].split('where')[-1])
+
+    converted = conf_map['as_block'] + v.format(merge_block) + ';' + '\n\n' + conf_map['sf_exe_b'] + '\n\n' +'\n'.join(blocks)+conf_map['sf_exe_m']+ conf_map['sf_exe_e']
 
     return converted
+    # else:
+    #     converted =conf_map['as_block']+ v.format(merge_block)+';' \
+    #            +'\n\n'+ conf_map['sf_exe_b'] + '\n\n' + block + conf_map['sf_exe_e']
+
+
 
 def new_keys(block):
     keyw = []
@@ -63,12 +69,14 @@ def query_processor(file):
     block = ''.join(mac.split(');')).replace('\n','\n ').replace('"','').split(';')
     op_file = file.split('\\')[-1].split('.')[0]+'_converted.txt'
     query_resp = []
+    merge = 'merge' + mac.split('merge')[1].split(');',1)[0]
+    non_merge = mac.split('merge')[1].split(');',1)[1]
     for k, v in conf_map.items():
         if k == 'create macro':
             c_macro = create_macro(k, v,block)
             query_resp.append(c_macro)
         elif k == 'merge into':
-            m_macro = merge_into(k,v,block)
+            m_macro = merge_into(merge,v,non_merge)
             query_resp.append(m_macro)
     query_resp.insert(0,op_log)
     with open(op_file , 'w') as f:
@@ -84,6 +92,6 @@ if __name__ == '__main__':
     for files in inp_list:
         file = src_path+files
         query_processor(file)
-    # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS\playground\files\macro\m_lh2_config_equip_status_b.sql')
+    # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\files\macro\Teradata Actual Macro.txt')
 
 # ''.join(op[op.index('using \n'):op.index('when matched then \n')]).replace('\n','').replace('\t','')

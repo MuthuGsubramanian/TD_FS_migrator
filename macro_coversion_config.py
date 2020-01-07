@@ -1,5 +1,5 @@
 conf_map = {
-    'create macro': '''CREATE OR REPLACE PROCEDURE "{0}"()
+    'create macro': '''CREATE OR REPLACE PROCEDURE "{0}"."{1}"()
                         RETURNS VARCHAR(16777216)
                         LANGUAGE JAVASCRIPT
                         STRICT

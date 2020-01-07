@@ -1,0 +1,506 @@
+
+
+replace  procedure edw_etl.lh2_dump_c_ds6_sp ( start_shift_date DATE,end_shift_date DATE, filter_cliid VARCHAR(100), extract_mode Varchar(10))
+begin
+
+/****************************************************************************************************************************************************
+* PK of collection table: cliid , shiftindex, ddbkey 
+* PURPOSE : Load the lh2_dump_c collection table from  lh2_dump_ds6_etl view based on dw_modify_ts of base table edw_target.lh2_shift_dump_b
+*                      
+* Usage :  
+call edw_etl.lh2_dump_c_ds6_sp ('1900-01-01' ,'9999-12-31' ,'16280,18176,18197,18404,19259,22362,32462,32578,32800,36616,36623,42468,1554590','FULL' );
+call edw_etl.lh2_dump_c_ds6_sp (null,null,null ,'Delta' )
+ Procedure Steps:
+ Initial: Set the procedure run time 
+    Get the max of modify time from base table
+            check  job execution mode and define the filter 
+Step1: Delete the stage table
+Step2: insert the data set into stage table based on the filter condition
+Step3: merge into target table
+Step4: Capture the deleted rows
+Step5: Cleanup the target table 
+Step6: update the di job contorl entry ts base table
+* CREATE/CHANGE LOG : 
+* DATE                     MOD BY                               GCC                           DESC
+*-------------------------------------   -----------------------------------   -----------------------------------   
+*    2019-03-08       Kali D         Initial version
+*   2019-08-30      Sabarish S      	 Incremental load enhancement  (proc_var_filter_list  - logic change for delta.)
+															Etl view is being filered with variable proc_var_filter_list which filters shiftid/shiftindex and site code
+															Previous filter was made only with the driving table;
+															If non-driving table gets refreshed there wont be any impact in this stored procedure 
+															so driving table will be up to date whereas non-driving table will not get latest data
+															New filter includes all tables in it so that driving or non-driving table which ever get refreshed, there will be an impact in this stored procedure
+*    *****************************************************************************************************************************************************/ 
+
+declare proc_var_dw_modify_ts varchar(19) ;
+declare proc_var_ds6_base_max_dw_modify_ts varchar(19);
+declare proc_var_di_last_run_ts varchar(19);
+declare proc_var_di_last_run_ts_no_look_back timestamp(0);
+declare proc_var_filter_list varchar(8000);
+
+
+set proc_var_dw_modify_ts = (select cast(current_timestamp(0) as varchar (19)));
+set proc_var_di_last_run_ts_no_look_back = (select extract_high_ts    from edw_target.di_job_control_entry_ts_base where job_name ='job_lh2_dump_c_ds6_sp');
+set proc_var_di_last_run_ts = (select extract_high_ts - cast( 24*60* lookback_days_dec as interval minute(4))   from edw_target.di_job_control_entry_ts_base where job_name ='job_lh2_dump_c_ds6_sp');
+set proc_var_ds6_base_max_dw_modify_ts =  (select max(dw_modify_ts) from edw_target.lh2_shift_dump_b ); 
+
+
+if extract_mode ='FULL'
+   then 
+    set proc_var_filter_list = ' shiftdate between '''|| start_shift_date ||''' and '''|| end_shift_date||''' and  cliid in  ( select cast(token as int)   from table (strtok_split_to_table(1,'''||filter_cliid||''', '','' ) returns (outkey integer,tokennum integer,token varchar(20) character set unicode)) as cliid_list  )' ;
+   else 
+                   if  (select cast( proc_var_ds6_base_max_dw_modify_ts as timestamp) base_tbl_load_time ) > (select cast( proc_var_di_last_run_ts as timestamp)  as di_load_time)
+                            then
+                            set proc_var_ds6_base_max_dw_modify_ts = proc_var_di_last_run_ts ;
+                        end if;
+    -- Sabarish S 2019-08-30 added as part of incremental load enhancement
+   set proc_var_filter_list = '  ( shiftid , site_code ) in  
+																					(select shiftid,site_code from edw_target.lh2_shift_dump_tbars_array_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||'''  union
+																					select shiftid,site_code from edw_target.lh2_shift_dump_tmbars_array_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||'''  union
+																					select shiftid,site_code from edw_target.lh2_shift_dump_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_load_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_eqmt_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_loc_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_grade_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_dump_lift_array_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_shift_dump_lift_dist_array_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union 
+																					select shiftid,site_code from edw_target.lh2_shift_oper_b   where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''' union
+																					select shiftid,site_code from edw_target.lh2_sum_shift_dump_b  where dw_modify_ts >= timestamp ''' || proc_var_ds6_base_max_dw_modify_ts  ||''')  ' ;
+   end if;
+
+
+--Step1: Delete the stage table
+
+delete edw_stage.lh2_dump_ds6;
+
+--Step2: insert the data set into stage table based on the filter condition
+call dbc.sysexecsql (' insert into edw_stage.lh2_dump_ds6 ( shiftindex,'  
+  || 'shiftdate, ' 
+  || 'site_code, ' 
+  || 'cliid, ' 
+  || 'ddbkey, ' 
+  || 'dumpid, ' 
+  || 'bay, ' 
+  || 'blast, ' 
+  || 'dump_blast, ' 
+  || 'calctravti, ' 
+  || 'dist, ' 
+  || 'dumpingtim, ' 
+  || 'dumptons, ' 
+  || 'efh, ' 
+  || 'eoper, ' 
+  || 'excav, ' 
+  || 'excav_orig, ' 
+  || 'extraload, ' 
+  || 'grade, ' 
+  || 'hos, ' 
+  || 'idletime, ' 
+  || 'idmp, ' 
+  || 'intvl, ' 
+  || 'lift_down, ' 
+  || 'lift_up, ' 
+  || 'liftdist_d, ' 
+  || 'liftdist_u, ' 
+  || 'load, ' 
+  || 'loadnumber, ' 
+  || 'loadold, ' 
+  || 'loadrec, ' 
+  || 'loadtype, ' 
+  || 'loc, ' 
+  || 'measureton, ' 
+  || 'oper, ' 
+  || 'shiftlink, ' 
+  || 'timearrive, ' 
+  || 'timearrive_ts, ' 
+  || 'timedigest, ' 
+  || 'timedigest_ts, ' 
+  || 'timedump, ' 
+  || 'timedump_ts, ' 
+  || 'timeempty, ' 
+  || 'timeempty_ts, ' 
+  || 'truck, ' 
+  || 'truck_orig, ' 
+  || 'val_dmp, ' 
+  || 'gpsx, ' 
+  || 'gpsy, ' 
+  || 'dlock, ' 
+  || 'elock, ' 
+  || 'edlock, ' 
+  || 'rlock, ' 
+  || 'gpsstat, ' 
+  || 'tbars0, ' 
+  || 'tbars1, ' 
+  || 'tbars2, ' 
+  || 'tbars3, ' 
+  || 'blend#, ' 
+  || 'blend, ' 
+  || 'tmbars0#, ' 
+  || 'tmbars0, ' 
+  || 'tmbars1#, ' 
+  || 'tmbars1, ' 
+  || 'tmbars2#, ' 
+  || 'tmbars2, ' 
+  || 'tmbars3#, ' 
+  || 'tmbars3, ' 
+  || 'tmbars4#, ' 
+  || 'tmbars4, ' 
+  || 'tmbars5#, ' 
+  || 'tmbars5, ' 
+  || 'system_version, ' 
+  || 'dw_logical_delete_flag, ' 
+  || 'dw_modify_ts, ' 
+  || ' dw_load_ts )'
+ || 'select  shiftindex,'  
+  || ' shiftdate, ' 
+  || ' site_code, ' 
+  || ' cliid, ' 
+  || ' ddbkey, ' 
+  || ' dumpid, ' 
+  || ' bay, ' 
+  || ' blast, ' 
+  || ' dump_blast, ' 
+  || ' calctravti, ' 
+  || ' dist, ' 
+  || ' dumpingtim, ' 
+  || ' dumptons, ' 
+  || ' efh, ' 
+  || ' eoper, ' 
+  || ' excav, ' 
+  || ' excav_orig, ' 
+  || ' extraload, ' 
+  || ' grade, ' 
+  || ' hos, ' 
+  || ' idletime, ' 
+  || ' idmp, ' 
+  || ' intvl, ' 
+  || ' lift_down, ' 
+  || ' lift_up, ' 
+  || ' liftdist_d, ' 
+  || ' liftdist_u, ' 
+  || ' load, ' 
+  || ' loadnumber, ' 
+  || ' loadold, ' 
+  || ' loadrec, ' 
+  || ' loadtype, ' 
+  || ' loc, ' 
+  || ' measureton, ' 
+  || ' oper, ' 
+  || ' shiftlink, ' 
+  || ' timearrive, ' 
+  || ' timearrive_ts, ' 
+  || ' timedigest, ' 
+  || ' timedigest_ts, ' 
+  || ' timedump, ' 
+  || ' timedump_ts, ' 
+  || ' timeempty, ' 
+  || ' timeempty_ts, ' 
+  || ' truck, ' 
+  || ' truck_orig, ' 
+  || ' val_dmp, ' 
+  || ' gpsx, ' 
+  || ' gpsy, ' 
+  || ' dlock, ' 
+  || ' elock, ' 
+  || ' edlock, ' 
+  || ' rlock, ' 
+  || ' gpsstat, ' 
+  || ' tbars0, ' 
+  || ' tbars1, ' 
+  || ' tbars2, ' 
+  || ' tbars3, ' 
+  || ' blend#, ' 
+  || ' blend, ' 
+  || ' tmbars0#, ' 
+  || ' tmbars0, ' 
+  || ' tmbars1#, ' 
+  || ' tmbars1, ' 
+  || ' tmbars2#, ' 
+  || ' tmbars2, ' 
+  || ' tmbars3#, ' 
+  || ' tmbars3, ' 
+  || ' tmbars4#, ' 
+  || ' tmbars4, ' 
+  || ' tmbars5#, ' 
+  || ' tmbars5, ' 
+   ||'  ''Dispatch 6'' as system_version,'
+ ||'  ''N'' as dw_logical_delete_flag,'
+||'  timestamp ''' || proc_var_dw_modify_ts  ||'''  as dw_modify_ts,'
+  ||'  timestamp ''' || proc_var_dw_modify_ts  ||'''  as dw_load_ts from edw_etl_view.lh2_dump_ds6_etl   '
+||'  where  '|| proc_var_filter_list ||';'
+);
+
+--Step3: merge into target table
+merge into edw_target.lh2_dump_c as tgt 
+using 
+( 
+select  
+shiftindex ,  
+ shiftdate ,  
+ site_code ,  
+ cliid ,  
+ ddbkey ,  
+ dumpid ,  
+ bay ,  
+ blast ,  
+ dump_blast ,  
+ calctravti ,  
+ dist ,  
+ dumpingtim ,  
+ dumptons ,  
+ efh ,  
+ eoper ,  
+ excav ,  
+ excav_orig ,  
+ extraload ,  
+ grade ,  
+ hos ,  
+ idletime ,  
+ idmp ,  
+ intvl ,  
+ lift_down ,  
+ lift_up ,  
+ liftdist_d ,  
+ liftdist_u ,  
+ load ,  
+ loadnumber ,  
+ loadold ,  
+ loadrec ,  
+ loadtype ,  
+ loc ,  
+ measureton ,  
+ oper ,  
+ shiftlink ,  
+ timearrive ,  
+ timearrive_ts ,  
+ timedigest ,  
+ timedigest_ts ,  
+ timedump ,  
+ timedump_ts ,  
+ timeempty ,  
+ timeempty_ts ,  
+ truck ,  
+ truck_orig ,  
+ val_dmp ,  
+ gpsx ,  
+ gpsy ,  
+ dlock ,  
+ elock ,  
+ edlock ,  
+ rlock ,  
+ gpsstat ,  
+ tbars0 ,  
+ tbars1 ,  
+ tbars2 ,  
+ tbars3 ,  
+ blend# ,  
+ blend ,  
+ tmbars0# ,  
+ tmbars0 ,  
+ tmbars1# ,  
+ tmbars1 ,  
+ tmbars2# ,  
+ tmbars2 ,  
+ tmbars3# ,  
+ tmbars3 ,  
+ tmbars4# ,  
+ tmbars4 ,  
+ tmbars5# ,  
+ tmbars5 ,  
+ system_version ,  
+ dw_logical_delete_flag ,  
+ dw_modify_ts ,  
+ dw_load_ts   
+from  edw_stage.lh2_dump_ds6 
+) as stg 
+ON ( stg.shiftindex = tgt.shiftindex and 
+stg.cliid = tgt.cliid and 
+stg.ddbkey = tgt.ddbkey)
+
+WHEN MATCHED THEN 
+UPDATE SET 
+shiftdate =  stg.shiftdate , 
+ site_code =  stg.site_code , 
+ dumpid =  stg.dumpid , 
+ bay =  stg.bay , 
+ blast =  stg.blast , 
+ dump_blast =  stg.dump_blast , 
+ calctravti =  stg.calctravti , 
+ dist =  stg.dist , 
+ dumpingtim =  stg.dumpingtim , 
+ dumptons =  stg.dumptons , 
+ efh =  stg.efh , 
+ eoper =  stg.eoper , 
+ excav =  stg.excav , 
+ excav_orig =  stg.excav_orig , 
+ extraload =  stg.extraload , 
+ grade =  stg.grade , 
+ hos =  stg.hos , 
+ idletime =  stg.idletime , 
+ idmp =  stg.idmp , 
+ intvl =  stg.intvl , 
+ lift_down =  stg.lift_down , 
+ lift_up =  stg.lift_up , 
+ liftdist_d =  stg.liftdist_d , 
+ liftdist_u =  stg.liftdist_u , 
+ load =  stg.load , 
+ loadnumber =  stg.loadnumber , 
+ loadold =  stg.loadold , 
+ loadrec =  stg.loadrec , 
+ loadtype =  stg.loadtype , 
+ loc =  stg.loc , 
+ measureton =  stg.measureton , 
+ oper =  stg.oper , 
+ shiftlink =  stg.shiftlink , 
+ timearrive =  stg.timearrive , 
+ timearrive_ts =  stg.timearrive_ts , 
+ timedigest =  stg.timedigest , 
+ timedigest_ts =  stg.timedigest_ts , 
+ timedump =  stg.timedump , 
+ timedump_ts =  stg.timedump_ts , 
+ timeempty =  stg.timeempty , 
+ timeempty_ts =  stg.timeempty_ts , 
+ truck =  stg.truck , 
+ truck_orig =  stg.truck_orig , 
+ val_dmp =  stg.val_dmp , 
+ gpsx =  stg.gpsx , 
+ gpsy =  stg.gpsy , 
+ dlock =  stg.dlock , 
+ elock =  stg.elock , 
+ edlock =  stg.edlock , 
+ rlock =  stg.rlock , 
+ gpsstat =  stg.gpsstat , 
+ tbars0 =  stg.tbars0 , 
+ tbars1 =  stg.tbars1 , 
+ tbars2 =  stg.tbars2 , 
+ tbars3 =  stg.tbars3 , 
+ blend# =  stg.blend# , 
+ blend =  stg.blend , 
+ tmbars0# =  stg.tmbars0# , 
+ tmbars0 =  stg.tmbars0 , 
+ tmbars1# =  stg.tmbars1# , 
+ tmbars1 =  stg.tmbars1 , 
+ tmbars2# =  stg.tmbars2# , 
+ tmbars2 =  stg.tmbars2 , 
+ tmbars3# =  stg.tmbars3# , 
+ tmbars3 =  stg.tmbars3 , 
+ tmbars4# =  stg.tmbars4# , 
+ tmbars4 =  stg.tmbars4 , 
+ tmbars5# =  stg.tmbars5# , 
+ tmbars5 =  stg.tmbars5 , 
+ system_version =  stg.system_version , 
+ dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+ dw_modify_ts =  stg.dw_modify_ts 
+
+WHEN NOT MATCHED THEN 
+INSERT VALUES (
+ stg.shiftindex , 
+  stg.shiftdate , 
+  stg.site_code , 
+  stg.cliid , 
+  stg.ddbkey , 
+  stg.dumpid , 
+  stg.bay , 
+  stg.blast , 
+  stg.dump_blast , 
+  stg.calctravti , 
+  stg.dist , 
+  stg.dumpingtim , 
+  stg.dumptons , 
+  stg.efh , 
+  stg.eoper , 
+  stg.excav , 
+  stg.excav_orig , 
+  stg.extraload , 
+  stg.grade , 
+  stg.hos , 
+  stg.idletime , 
+  stg.idmp , 
+  stg.intvl , 
+  stg.lift_down , 
+  stg.lift_up , 
+  stg.liftdist_d , 
+  stg.liftdist_u , 
+  stg.load , 
+  stg.loadnumber , 
+  stg.loadold , 
+  stg.loadrec , 
+  stg.loadtype , 
+  stg.loc , 
+  stg.measureton , 
+  stg.oper , 
+  stg.shiftlink , 
+  stg.timearrive , 
+  stg.timearrive_ts , 
+  stg.timedigest , 
+  stg.timedigest_ts , 
+  stg.timedump , 
+  stg.timedump_ts , 
+  stg.timeempty , 
+  stg.timeempty_ts , 
+  stg.truck , 
+  stg.truck_orig , 
+  stg.val_dmp , 
+  stg.gpsx , 
+  stg.gpsy , 
+  stg.dlock , 
+  stg.elock , 
+  stg.edlock , 
+  stg.rlock , 
+  stg.gpsstat , 
+  stg.tbars0 , 
+  stg.tbars1 , 
+  stg.tbars2 , 
+  stg.tbars3 , 
+  stg.blend# , 
+  stg.blend , 
+  stg.tmbars0# , 
+  stg.tmbars0 , 
+  stg.tmbars1# , 
+  stg.tmbars1 , 
+  stg.tmbars2# , 
+  stg.tmbars2 , 
+  stg.tmbars3# , 
+  stg.tmbars3 , 
+  stg.tmbars4# , 
+  stg.tmbars4 , 
+  stg.tmbars5# , 
+  stg.tmbars5 , 
+  stg.system_version , 
+  stg.dw_logical_delete_flag , 
+  stg.dw_modify_ts , 
+  stg.dw_load_ts);
+
+--Step4: Capture the deleted rows
+ 
+update edw_target.lh2_dump_c  as tgt 
+set dw_logical_delete_flag = 'Y' ,
+       dw_modify_ts = cast(proc_var_dw_modify_ts as timestamp(0))
+where 
+tgt.dw_logical_delete_flag <>'Y'
+and not exists
+      (select 1
+      from edw_stage.lh2_dump_ds6 as stg 
+      where stg.shiftindex = tgt.shiftindex 
+      and stg.cliid = tgt.cliid 
+      and stg.ddbkey = tgt.ddbkey 
+         )  
+and  exists
+     (
+     select 'X'
+     from edw_stage.lh2_dump_ds6  stg1 
+     where  stg1.shiftindex = tgt.shiftindex
+     and stg1.cliid = tgt.cliid
+     )   ; 
+
+--Step5: Cleanup the target table 
+delete   edw_target.lh2_dump_c  where dw_logical_delete_flag = 'Y' and dw_modify_ts <= ( cast(proc_var_dw_modify_ts as timestamp(0)) - interval '3' day );
+
+--Step6: update the di job contorl entry ts base table 
+update edw_target.di_job_control_entry_ts_base 
+set dw_load_ts =  cast(proc_var_dw_modify_ts as timestamp(0)),
+extract_low_ts =  proc_var_di_last_run_ts_no_look_back  ,
+extract_high_ts =  coalesce ( (select max(dw_modify_ts) from edw_stage.lh2_dump_ds6), proc_var_di_last_run_ts_no_look_back )
+where job_name ='job_lh2_dump_c_ds6_sp';
+
+
+end;

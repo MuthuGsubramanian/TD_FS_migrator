@@ -1,0 +1,294 @@
+create view edw_etl_view.lh2_dump_ds6_etl as 
+lock table edw_target.lh2_shift_dump_tbars_array_b for access  
+lock table edw_target.lh2_shift_dump_tmbars_array_b for access  
+lock table edw_target.lh2_shift_dump_b for access  
+lock table edw_target.lh2_shift_load_b for access  
+lock table edw_target.lh2_shift_eqmt_b for access  
+lock table edw_target.lh2_shift_loc_b for access  
+lock table edw_target.lh2_shift_grade_b for access  
+lock table edw_target.lh2_enum_b for access  
+lock table edw_target.lh2_shift_dump_lift_array_b for access  
+lock table edw_target.lh2_shift_dump_lift_dist_array_b for access  
+lock table edw_target.lh2_shift_oper_b for access  
+lock table edw_target.lh2_sum_shift_dump_b for access  
+/* Anandhi 09/26/2019 Included the case condition for shiftindex field for Cerro Verde site 
+   Anandhi 10/30/2019 Included the case condition to handle calculation for dumptons field*/
+select 
+sh_dump.site_code
+,sh_dump.shiftid
+--,(sh_dump.shiftdate - (date '1970-01-01' )) * 2  + (sh_dump.shiftid -1) mod 2 as    shiftindex
+,case 
+when sh_dump.site_code ='CER' then
+((sh_dump.shiftdate - (date '1970-01-01' )) * 2  + (sh_dump.shiftid -1) mod 2)*10
+else (sh_dump.shiftdate - (date '1970-01-01' )) * 2  + (sh_dump.shiftid -1) mod 2
+end as    shiftindex  --Anandhi 2019-09-26 Included case condition for CER site
+,sh_dump.shiftdate
+,sites.disp_cliid as  cliid 
+,sh_dump.dbkey as ddbkey
+-- load count + dump
+,sh_load_cnt.load_row_cnt + row_number ( ) over(partition by sh_dump.site_code,sh_dump.shiftid order by sh_dump.fieldtimeempty asc nulls last,sh_dump.fieldcalctravtime asc nulls last, sh_dump.fieldtimedump asc nulls last,sh_dump.fieldtimearrive asc nulls last,  sh_dump.dbkey asc )  as  dumpid -- a seq number for dumps in a shift discuss with dean
+,dump_bay.fieldid   as  bay
+,dump_blast.fieldid  as  blast
+,case 
+	when sites.disp_cliid = 36616
+	then substr(dump_blast.fieldid,6,3)
+	when sites.disp_cliid = 18404
+	then substr(dump_blast.fieldid,1,8)
+	when sites.disp_cliid = 22362 
+	then dump_grade.fieldid
+	when sites.disp_cliid in (32800,32462,36623,42468, 18176,18197) 
+	then dump_blast.fieldid
+	else substr(dump_blast.fieldid,1,4) 
+end as dump_blast -- referenced from pv5
+,sh_dump.fieldcalctravtime as  calctravti
+,case
+	when sites.disp_cliid  in(32578, 1554590, 19259, 22362,42468)  
+	then (3.28084) * ZEROIFNULL(sh_dump.fielddist)
+	else sh_dump.fielddist 
+end as dist -- referenced from pv5
+,coalesce(sh_dump.fieldtimeempty,0)  - coalesce(sh_dump.fieldtimearrive ,0) - coalesce(sumdump.dumpingnwtime,0)   as  dumpingtim -- since we are not considering the idlw time it won't match with powerview
+
+/*,case
+when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468) then (1.10231) * zeroifnull(sh_dump.fieldlsizetons)
+else sh_dump.fieldlsizetons 
+end as dumptons*/
+--,truck.fieldsize as dumptons 
+,case 
+   when sites.disp_cliid in (32578, 1554590, 19259, 22362,42468)
+   then (1.10231) * zeroifnull(truck.fieldsize)
+   else truck.fieldsize
+ end  as dumptons --Included the calculation on 10/30/2019
+,sh_dump.fieldefh  as  efh
+--,excav_oper.fieldid  as  eoper
+,case when length(cast (excav_oper.fieldid as varchar(20)))=5 then '0'||excav_oper.fieldid else excav_oper.fieldid end eoper
+,excav.fieldid as  excav
+,null as excav_orig  -- there is no source column in mapping
+,sh_dump.fieldextraload  as  extraload
+,dump_grade.fieldid  as  grade
+,round(sh_dump.fieldtimedump/3600,0) as hos --hour shift   timearrive /3600 around it
+, null as  idletime -- we don't have in ds6 nick: we eliminating the custom idle time
+, case 
+	when sumdump.dumpingnwtime = 0 
+	then 0
+	else 1 
+end as  idmp
+, time'00:00:00' + cast( hos   as interval hour(4)) as intvl -- hos in hour format hh:mm:ss
+,case 
+	when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468)  
+	then (3.28084) * ZEROIFNULL(sh_dump_lift_array_down.dump_lift_array_value)
+	else sh_dump_lift_array_down.dump_lift_array_value 
+end as lift_down
+,case 
+	when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468)   
+	then (3.28084) * ZEROIFNULL(sh_dump_lift_array_up.dump_lift_array_value)
+	else sh_dump_lift_array_up.dump_lift_array_value 
+end as lift_up
+,case 
+	when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468)   
+	then (3.28084) * ZEROIFNULL(sh_dump_lift_dist_array_down.dump_lift_dist_array_value)
+	else sh_dump_lift_dist_array_down.dump_lift_dist_array_value 
+end as liftdist_d
+,case 
+	when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468)  
+	then (3.28084) * ZEROIFNULL(sh_dump_lift_dist_array_up.dump_lift_dist_array_value)
+	else sh_dump_lift_dist_array_up.dump_lift_dist_array_value
+end as liftdist_u
+,mat_load.idx  as  load
+,null as  loadnumber -- we don't have in ds6 nick & cory: not being used in powerview
+,null as  loadold -- there is no source column in mapping
+,substr(sh_dump.fieldloadrec,11,19) as  loadrec
+,loadtype.idx  as  loadtype
+,dump_loc.fieldid  as  loc
+,case 
+	when sites.disp_cliid in(32578, 1554590, 19259, 22362,42468) 
+	then (1.10231) * ZEROIFNULL(sh_dump.fieldtons)
+	else sh_dump.fieldtons 
+end as measureton
+--,truck_oper.fieldid  as  oper
+,case when length(cast (truck_oper.fieldid as varchar(20)))=5 then '0'||truck_oper.fieldid else truck_oper.fieldid end oper
+,null as shiftlink -- there is no source column in mapping
+,sh_dump.fieldtimearrive as  timearrive
+,sh_dump.fieldtimearrive_ts as timearrive_ts
+,sh_dump.fieldtimedigest as  timedigest
+,sh_dump.fieldtimedigest_ts as timedigest_ts
+,sh_dump.fieldtimedump as timedump
+,sh_dump.fieldtimedump_ts as timedump_ts
+,sh_dump.fieldtimeempty  as  timeempty 
+,sh_dump.fieldtimeempty_ts as timeempty_ts
+,truck.fieldid as  truck
+,null as truck_orig -- there is no source column in mapping
+, case 
+	when sumdump.dumpingnwtime <> 0 
+	then 0 
+	else 1 
+end  as  val_dmp
+,sh_dump.fieldgpsxtkd  as  gpsx
+,sh_dump.fieldgpsytkd as  gpsy
+,sh_dump.fielddlock as dlock 
+,sh_dump.fieldelock as elock 
+,sh_dump.fieldedlock as edlock                        
+,sh_dump.fieldrlock as rlock 
+,sh_dump.fieldgpsstat as  gpsstat
+,sh_dump_tbars.tbars0 as tbars0    
+,sh_dump_tbars.tbars1 as tbars1                      
+,sh_dump_tbars.tbars2 as tbars2                        
+,sh_dump_tbars.tbars3 as tbars3 
+, blend_type.idx  as  blend#  -- nick & cory: safford has value in powerview, not a mvp for sie
+, blend_type.description  as  blend
+,0 as tmbars0#                      
+,sh_dump_tmbars.tmbars0 as tmbars0 
+,1 as tmbars1#                      
+,sh_dump_tmbars.tmbars1 as tmbars1
+,2 as tmbars2#                      
+,sh_dump_tmbars.tmbars2 as tmbars2                     
+,3 as tmbars3#                      
+,sh_dump_tmbars.tmbars3 as tmbars3                      
+,4 as tmbars4#                      
+,sh_dump_tmbars.tmbars4 as tmbars4                       
+,5 as tmbars5#                      
+,sh_dump_tmbars.tmbars5 as tmbars5    
+,sh_dump.dw_modify_ts 
+,sh_dump.dw_load_ts 
+from 
+edw_target.lh2_shift_dump_b sh_dump
+
+left join pddw.site_v sites 
+on (sh_dump.site_code = sites.site_code)
+
+--to get dump id
+left join
+(select site_code,shiftdate,shiftid,count(*) load_row_cnt
+from edw_target.lh2_shift_load_b 
+where dw_logical_delete_flag in ('A','N')
+group by site_code,shiftdate,shiftid
+) sh_load_cnt
+on (sh_dump.site_code = sh_load_cnt.site_code
+and sh_dump.shiftid = sh_load_cnt.shiftid
+and sh_dump.shiftdate = sh_load_cnt.shiftdate)
+
+left join edw_target.lh2_shift_eqmt_b truck
+on (sh_dump.fieldtruck = truck.shift_eqmt_id
+and sh_dump.shiftid = truck.shiftid
+and sh_dump.site_code = truck.site_code
+and truck.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_loc_b dump_loc
+on (sh_dump.fieldloc = dump_loc.shift_loc_id
+and sh_dump.shiftid = dump_loc.shiftid
+and sh_dump.site_code = dump_loc.site_code
+and dump_loc.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_eqmt_b excav
+on (sh_dump.fieldexcav = excav.shift_eqmt_id
+and sh_dump.shiftid = excav.shiftid
+and sh_dump.site_code = excav.site_code
+and excav.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_grade_b dump_grade
+on (sh_dump.fieldgrade = dump_grade.shift_grade_id
+and sh_dump.shiftid = dump_grade.shiftid
+and sh_dump.site_code = dump_grade.site_code
+and dump_grade.dw_logical_delete_flag in ('A','N'))
+
+left outer join edw_target.lh2_enum_b as blend_type
+on (blend_type.enum_id = dump_grade.fieldblend
+and blend_type.site_code = dump_grade.site_code
+and blend_type.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_loc_b dump_blast
+on (sh_dump.fieldblast = dump_blast.shift_loc_id
+and sh_dump.shiftid = dump_blast.shiftid
+and sh_dump.site_code = dump_blast.site_code
+and dump_blast.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_loc_b dump_bay
+on (sh_dump.fieldbay = dump_bay.shift_loc_id
+and sh_dump.shiftid = dump_bay.shiftid
+and sh_dump.site_code = dump_bay.site_code
+and dump_bay.dw_logical_delete_flag in ('A','N'))
+
+left outer join edw_target.lh2_enum_b as mat_load
+on mat_load.enum_id = sh_dump.fieldload
+and mat_load.site_code = sh_dump.site_code
+and mat_load.dw_logical_delete_flag in ('A','N')
+
+left join edw_target.lh2_shift_dump_lift_array_b sh_dump_lift_array_up  
+on ( sh_dump.shift_dump_id = sh_dump_lift_array_up.dump_lift_array_id
+and sh_dump.site_code = sh_dump_lift_array_up.site_code
+and sh_dump_lift_array_up.dump_lift_array_index = 0
+and sh_dump_lift_array_up.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_dump_lift_array_b sh_dump_lift_array_down
+on ( sh_dump.shift_dump_id = sh_dump_lift_array_down.dump_lift_array_id
+and sh_dump.site_code = sh_dump_lift_array_down.site_code
+and sh_dump_lift_array_down.dump_lift_array_index = 1
+and sh_dump_lift_array_down.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_dump_lift_dist_array_b sh_dump_lift_dist_array_up
+on ( sh_dump.shift_dump_id = sh_dump_lift_dist_array_up.dump_lift_dist_array_id 
+and sh_dump.site_code = sh_dump_lift_dist_array_up.site_code
+and sh_dump_lift_dist_array_up.dump_lift_dist_array_index = 0
+and sh_dump_lift_dist_array_up.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_dump_lift_dist_array_b sh_dump_lift_dist_array_down
+on ( sh_dump.shift_dump_id = sh_dump_lift_dist_array_down.dump_lift_dist_array_id
+and sh_dump.site_code = sh_dump_lift_dist_array_down.site_code
+and sh_dump_lift_dist_array_down.dump_lift_dist_array_index = 1
+and sh_dump_lift_dist_array_down.dw_logical_delete_flag in ('A','N'))
+
+left outer join edw_target.lh2_enum_b as loadtype
+on loadtype.enum_id = sh_dump.fieldloadtype
+and loadtype.site_code = sh_dump.site_code
+and loadtype.dw_logical_delete_flag in ('A','N')
+
+left join edw_target.lh2_shift_oper_b truck_oper
+on (sh_dump.fieldtoper = truck_oper.shift_oper_id
+and sh_dump.shiftid = truck_oper.shiftid
+and sh_dump.site_code = truck_oper.site_code
+and truck_oper.dw_logical_delete_flag in ('A','N'))
+
+left join edw_target.lh2_shift_oper_b excav_oper
+on (sh_dump.fieldeoper = excav_oper.shift_oper_id
+and sh_dump.shiftid = excav_oper.shiftid
+and sh_dump.site_code = excav_oper.site_code
+and excav_oper.dw_logical_delete_flag in ('A','N'))
+
+left outer join edw_target.lh2_sum_shift_dump_b as sumdump 
+on sumdump.sum_shift_dump_id = sh_dump.shift_dump_id
+and sh_dump.site_code = sumdump.site_code
+and sumdump.dw_logical_delete_flag in ('A','N')
+
+left join 
+(select 
+dump_tbars_array_id 
+,site_code
+,max(case when dump_tbars_array_index = 0 then dump_tbars_array_value else 0 end) as tbars0
+,max(case when dump_tbars_array_index = 1 then dump_tbars_array_value else 0 end) as tbars1
+,max(case when dump_tbars_array_index = 2 then dump_tbars_array_value else 0 end) as tbars2
+,max(case when dump_tbars_array_index = 3 then dump_tbars_array_value else 0 end) as tbars3
+from  edw_target.lh2_shift_dump_tbars_array_b
+where dw_logical_delete_flag in ('A','N')
+group by dump_tbars_array_id ,site_code
+) sh_dump_tbars
+on (sh_dump.shift_dump_id=sh_dump_tbars.dump_tbars_array_id
+and sh_dump.site_code = sh_dump_tbars.site_code)
+
+
+left join
+(select 
+dump_tmbars_array_id
+,site_code
+,sum(case when dump_tmbars_array_index = 0 then dump_tmbars_array_value else 0 end) as tmbars0
+,sum(case when dump_tmbars_array_index = 1 then dump_tmbars_array_value else 0 end) as tmbars1
+,sum(case when dump_tmbars_array_index = 2 then dump_tmbars_array_value else 0 end) as tmbars2
+,sum(case when dump_tmbars_array_index = 3 then dump_tmbars_array_value else 0 end) as tmbars3
+,sum(case when dump_tmbars_array_index = 4 then dump_tmbars_array_value else 0 end) as tmbars4
+,sum(case when dump_tmbars_array_index = 5 then dump_tmbars_array_value else 0 end) as tmbars5
+from  edw_target.lh2_shift_dump_tmbars_array_b
+where dw_logical_delete_flag in ('A','N')
+group by dump_tmbars_array_id ,site_code
+) sh_dump_tmbars
+on (sh_dump.shift_dump_id = sh_dump_tmbars.dump_tmbars_array_id
+and sh_dump.site_code = sh_dump_tmbars.site_code)
+
+where sh_dump.dw_logical_delete_flag in ('A','N');

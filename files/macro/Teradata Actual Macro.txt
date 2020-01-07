@@ -1,0 +1,243 @@
+show macro edw_stage_016.M_LH2_SHIFT_DUMP_B;
+
+create  macro  edw_stage_016.m_lh2_shift_dump_b
+as
+(
+merge into edw_target.lh2_shift_dump_b as tgt 
+using 
+( 
+select  	
+ stg.orig_src_id ,  
+ stg.site_code ,  
+ stg.shift_dump_id ,  
+ to_date(trim(substr(cast (stg.shiftid as varchar(30)),1,length(cast (stg.shiftid as varchar(30)))-3)),'yymmdd') as shiftdate ,  
+ stg.dbprevious ,  
+ stg.dbnext ,  
+ stg.dbversion ,  
+ stg.shiftid ,  
+ coalesce(stg.shift_dbname,' ') as shift_dbname ,  
+ stg.dbkey ,  
+ coalesce(stg.fieldid,' ') as fieldid ,  
+ stg.fieldtruck ,  
+ stg.fieldloc ,  
+ stg.fieldgrade ,  
+ stg.fieldloadrec ,  
+ stg.fieldexcav ,  
+ stg.fieldblast ,  
+ stg.fieldbay ,  
+ stg.fieldtons ,  
+ stg.fieldtimearrive ,  
+ shift_info.shiftstartdatetime + cast (stg.fieldtimearrive / 60 as  interval minute(4)) + cast ( (stg.fieldtimearrive  mod 60 ) as interval second(4,3))  as fieldtimearrive_ts ,  
+ stg.fieldtimedump ,  
+ shift_info.shiftstartdatetime + cast (stg.fieldtimedump / 60 as  interval minute(4)) + cast ( (stg.fieldtimedump  mod 60 ) as interval second(4,3))  as fieldtimedump_ts ,  
+ stg.fieldtimeempty ,  
+ shift_info.shiftstartdatetime + cast (stg.fieldtimeempty / 60 as  interval minute(4)) + cast ( (stg.fieldtimeempty  mod 60 ) as interval second(4,3))  as fieldtimeempty_ts ,  
+ stg.fieldtimedigest ,  
+ shift_info.shiftstartdatetime + cast (stg.fieldtimedigest / 60 as  interval minute(4)) + cast ( (stg.fieldtimedigest  mod 60 ) as interval second(4,3))  as fieldtimedigest_ts ,  
+ stg.fieldcalctravtime ,  
+ shift_info.shiftstartdatetime + cast (stg.fieldcalctravtime / 60 as  interval minute(4)) + cast ( (stg.fieldcalctravtime  mod 60 ) as interval second(4,3))  as fieldcalctravtime_ts ,  
+ stg.fieldload ,  
+ stg.fieldextraload ,  
+ stg.fielddist ,  
+ stg.fieldefh ,  
+ stg.fieldloadtype ,  
+ stg.fieldtoper ,  
+ stg.fieldeoper ,  
+ coalesce(stg.fieldorigasn,' ') as fieldorigasn ,  
+ coalesce(stg.fieldreasnby,' ') as fieldreasnby ,  
+ stg.fieldpathtravtime ,  
+ coalesce(stg.fieldlocactlc,' ') as fieldlocactlc ,  
+ stg.fieldlocacttp ,  
+ coalesce(stg.fieldlocactrl,' ') as fieldlocactrl ,  
+ stg.fieldaudit ,  
+ stg.fieldgpsxtkd ,  
+ stg.fieldgpsytkd ,  
+ stg.fieldgpsstat ,  
+ stg.fieldgpshead ,  
+ stg.fieldgpsvel ,  
+ stg.fieldlsizetons ,  
+ coalesce(stg.fieldlsizeid,' ') as fieldlsizeid ,  
+ stg.fieldlsizeversion ,  
+ stg.fieldlsizedb ,  
+ stg.fieldfactapply ,  
+ coalesce(stg.fielddlock,' ') as fielddlock ,  
+ coalesce(stg.fieldelock,' ') as fieldelock ,  
+ coalesce(stg.fieldedlock,' ') as fieldedlock ,  
+ coalesce(stg.fieldrlock,' ') as fieldrlock ,  
+ stg.fieldreconstat ,  
+ stg.fieldtimearrivemobile ,  
+ stg.fieldtimedumpmobile ,  
+ stg.fieldtimeemptymobile ,  
+ stg.src_change_id ,  
+ stg.dw_logical_delete_flag ,  
+ stg.dw_modify_ts ,  
+ stg.dw_load_ts   
+from   edw_stage_016.lh2_shift_dump as stg  
+left outer join pddw.lh2_shift_info shift_info
+     on (stg.site_code = shift_info.site_code and 
+     stg.shiftid = shift_info.shiftid )   
+where stg.change_type in ('I','U')
+) as stg 
+on ( stg.site_code = tgt.site_code 
+and stg.shift_dump_id = tgt.shift_dump_id 
+and stg.shiftdate =  tgt.shiftdate 
+and stg.shiftid = tgt.shiftid )
+
+when matched then 
+update set 
+ orig_src_id =  stg.orig_src_id , 
+ dbprevious =  stg.dbprevious , 
+ dbnext =  stg.dbnext , 
+ dbversion =  stg.dbversion , 
+ shift_dbname =  stg.shift_dbname , 
+ dbkey =  stg.dbkey , 
+ fieldid =  stg.fieldid , 
+ fieldtruck =  stg.fieldtruck , 
+ fieldloc =  stg.fieldloc , 
+ fieldgrade =  stg.fieldgrade , 
+ fieldloadrec =  stg.fieldloadrec , 
+ fieldexcav =  stg.fieldexcav , 
+ fieldblast =  stg.fieldblast , 
+ fieldbay =  stg.fieldbay , 
+ fieldtons =  stg.fieldtons , 
+ fieldtimearrive =  stg.fieldtimearrive , 
+ fieldtimearrive_ts =  stg.fieldtimearrive_ts , 
+ fieldtimedump =  stg.fieldtimedump , 
+ fieldtimedump_ts =  stg.fieldtimedump_ts , 
+ fieldtimeempty =  stg.fieldtimeempty , 
+ fieldtimeempty_ts =  stg.fieldtimeempty_ts , 
+ fieldtimedigest =  stg.fieldtimedigest , 
+ fieldtimedigest_ts =  stg.fieldtimedigest_ts , 
+ fieldcalctravtime =  stg.fieldcalctravtime , 
+ fieldcalctravtime_ts =  stg.fieldcalctravtime_ts , 
+ fieldload =  stg.fieldload , 
+ fieldextraload =  stg.fieldextraload , 
+ fielddist =  stg.fielddist , 
+ fieldefh =  stg.fieldefh , 
+ fieldloadtype =  stg.fieldloadtype , 
+ fieldtoper =  stg.fieldtoper , 
+ fieldeoper =  stg.fieldeoper , 
+ fieldorigasn =  stg.fieldorigasn , 
+ fieldreasnby =  stg.fieldreasnby , 
+ fieldpathtravtime =  stg.fieldpathtravtime , 
+ fieldlocactlc =  stg.fieldlocactlc , 
+ fieldlocacttp =  stg.fieldlocacttp , 
+ fieldlocactrl =  stg.fieldlocactrl , 
+ fieldaudit =  stg.fieldaudit , 
+ fieldgpsxtkd =  stg.fieldgpsxtkd , 
+ fieldgpsytkd =  stg.fieldgpsytkd , 
+ fieldgpsstat =  stg.fieldgpsstat , 
+ fieldgpshead =  stg.fieldgpshead , 
+ fieldgpsvel =  stg.fieldgpsvel , 
+ fieldlsizetons =  stg.fieldlsizetons , 
+ fieldlsizeid =  stg.fieldlsizeid , 
+ fieldlsizeversion =  stg.fieldlsizeversion , 
+ fieldlsizedb =  stg.fieldlsizedb , 
+ fieldfactapply =  stg.fieldfactapply , 
+ fielddlock =  stg.fielddlock , 
+ fieldelock =  stg.fieldelock , 
+ fieldedlock =  stg.fieldedlock , 
+ fieldrlock =  stg.fieldrlock , 
+ fieldreconstat =  stg.fieldreconstat , 
+ fieldtimearrivemobile =  stg.fieldtimearrivemobile , 
+ fieldtimedumpmobile =  stg.fieldtimedumpmobile , 
+ fieldtimeemptymobile =  stg.fieldtimeemptymobile , 
+ src_change_id =  stg.src_change_id , 
+ dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+ dw_modify_ts =  stg.dw_modify_ts 
+
+when not matched then 
+insert values (
+  stg.orig_src_id , 
+  stg.site_code , 
+  stg.shift_dump_id , 
+  stg.shiftdate , 
+  stg.dbprevious , 
+  stg.dbnext , 
+  stg.dbversion , 
+  stg.shiftid , 
+  stg.shift_dbname , 
+  stg.dbkey , 
+  stg.fieldid , 
+  stg.fieldtruck , 
+  stg.fieldloc , 
+  stg.fieldgrade , 
+  stg.fieldloadrec , 
+  stg.fieldexcav , 
+  stg.fieldblast , 
+  stg.fieldbay , 
+  stg.fieldtons , 
+  stg.fieldtimearrive , 
+  stg.fieldtimearrive_ts , 
+  stg.fieldtimedump , 
+  stg.fieldtimedump_ts , 
+  stg.fieldtimeempty , 
+  stg.fieldtimeempty_ts , 
+  stg.fieldtimedigest , 
+  stg.fieldtimedigest_ts , 
+  stg.fieldcalctravtime , 
+  stg.fieldcalctravtime_ts , 
+  stg.fieldload , 
+  stg.fieldextraload , 
+  stg.fielddist , 
+  stg.fieldefh , 
+  stg.fieldloadtype , 
+  stg.fieldtoper , 
+  stg.fieldeoper , 
+  stg.fieldorigasn , 
+  stg.fieldreasnby , 
+  stg.fieldpathtravtime , 
+  stg.fieldlocactlc , 
+  stg.fieldlocacttp , 
+  stg.fieldlocactrl , 
+  stg.fieldaudit , 
+  stg.fieldgpsxtkd , 
+  stg.fieldgpsytkd , 
+  stg.fieldgpsstat , 
+  stg.fieldgpshead , 
+  stg.fieldgpsvel , 
+  stg.fieldlsizetons , 
+  stg.fieldlsizeid , 
+  stg.fieldlsizeversion , 
+  stg.fieldlsizedb , 
+  stg.fieldfactapply , 
+  stg.fielddlock , 
+  stg.fieldelock , 
+  stg.fieldedlock , 
+  stg.fieldrlock , 
+  stg.fieldreconstat , 
+  stg.fieldtimearrivemobile , 
+  stg.fieldtimedumpmobile , 
+  stg.fieldtimeemptymobile , 
+  stg.src_change_id , 
+  stg.dw_logical_delete_flag , 
+  stg.dw_modify_ts , 
+  stg.dw_load_ts);
+--  step 2 ( for  deleted  records)
+--  it  is based on incrementaly  loaded records in  stage
+--  includes all the change type   ---   d
+update  edw_target.lh2_shift_dump_b  
+from 
+( select stg.site_code ,
+stg.shift_dump_id ,   
+case  when stg.change_type in('D')     then
+                            case 
+                      when shift_info.shiftdate<(current_date-170) then 'A' 
+                      else 'Y' ---handles  regular delete 
+                      end               
+    else 'U'---- for change type not in (i,u,d)
+end as dw_logical_delete_flag,
+stg.dw_modify_ts,  
+stg.change_type
+from edw_stage_016.lh2_shift_dump stg 
+left outer join pddw.lh2_shift_info shift_info
+     on (stg.site_code = shift_info.site_code and 
+    cast(substr(trim(stg.shift_dump_id),1,9) as integer) = shift_info.shiftid) ) as stg 
+set 
+dw_logical_delete_flag = stg.dw_logical_delete_flag , 
+dw_modify_ts = stg. dw_modify_ts 
+ where 
+stg.site_code = edw_target.lh2_shift_dump_b.site_code and  
+ stg.shift_dump_id = edw_target.lh2_shift_dump_b.shift_dump_id
+and  stg.change_type ='D' ;
+);

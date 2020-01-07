@@ -28,15 +28,16 @@ def merge_into(k,v,block):
     merge_block = k
     blocks = []
     if re.findall('update', block):
-        blocks.append('var_sql_logical_delete_capture = update' +block.split('from',1)[0].split('update')[-1])
-    if re.findall('from',block):
-        blocks.append(' from' + block.split('from',1)[-1].split('set')[0])
+        blocks.append('var_sql_logical_delete_capture = update' + block.split('from',1)[0].split('update')[-1]+ '\n')
     if re.findall('set',block):
-        blocks.append('set' + block.split('from',1)[-1].split('set')[-1].split('where')[0])
+        blocks.append('set' +'\n'+ block.split('from',1)[-1].split('set')[-1].split('where')[0]+'\n')
     if re.findall('where',block):
-        blocks.append(block.split('from',1)[-1].split('set')[-1].split('where')[-1])
+        blocks.append('where' +'\n'+block.split('from',1)[-1].split('set')[-1].split('where')[-1]+'\n')
+    if re.findall('from',block):
+        blocks.append(' from' +'\n'+ block.split('from',1)[-1].split('set')[0]+'\n')
 
-    converted = conf_map['as_block'] + v.format(merge_block) + ';' + '\n\n' + conf_map['sf_exe_b'] + '\n\n' +'\n'.join(blocks)+conf_map['sf_exe_m']+ conf_map['sf_exe_e']
+    converted = conf_map['as_block'] + v.format(merge_block) + ';' + '\n\n' + conf_map['sf_exe_m'] + '\n\n' \
+                +'\n'.join(blocks)+'\n'+conf_map['sf_exe_b']+ conf_map['sf_exe_e']
 
     return converted
     # else:
@@ -87,11 +88,11 @@ def query_processor(file):
 
 if __name__ == '__main__':
 
-    src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\macro\\"
-    inp_list = os.listdir(src_path)
-    for files in inp_list:
-        file = src_path+files
-        query_processor(file)
-    # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\files\macro\Teradata Actual Macro.txt')
+    # src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\macro\\"
+    # inp_list = os.listdir(src_path)
+    # for files in inp_list:
+    #     file = src_path+files
+    #     query_processor(file)
+    query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\files\macro\Teradata Actual Macro.txt')
 
 # ''.join(op[op.index('using \n'):op.index('when matched then \n')]).replace('\n','').replace('\t','')

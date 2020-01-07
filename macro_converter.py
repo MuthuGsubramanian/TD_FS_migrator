@@ -12,8 +12,9 @@ logging.basicConfig(
 
 
 def create_macro(k,v,block):
-
-    pd = list(filter(lambda x: k in x, block))
+    rm_space = re.compile(r'\s+')
+    # clean = re.sub(rm_space, ' ', block)
+    pd = list(filter(lambda x: k in re.sub(rm_space, ' ', x), block))
     if len(pd)== 0:
         pd = list(filter(lambda x: '\ncreate   macro' in x, block))
         macro_name = re.findall(r'create macro(.+?)as',pd[0])[0].split('.')
@@ -26,6 +27,10 @@ def create_macro(k,v,block):
 
 def merge_into(k,v,block):
     merge_block = k
+    for i, v in enumerate(''.join(block).split('\n')):
+        if re.findall('shiftstartdatetime', v):
+            pass
+
     blocks = []
     if re.findall('update', block):
         blocks.append('var_sql_logical_delete_capture = ' +"'" + 'update' + block.split('from',1)[0].split('update')[-1]+ '\n')
@@ -66,7 +71,7 @@ def query_processor(file):
     rm_space = re.compile(r'\s+')
     with open(file, 'r') as inp:
         op = inp.readlines()
-        mac = re.sub(rm_space,' ',''.join(op))
+        mac = ''.join(op)
     block = ''.join(mac.split(');')).replace('\n','\n ').replace('"','').split(';')
     op_file = file.split('\\')[-1].split('.')[0]+'_converted.txt'
     query_resp = []

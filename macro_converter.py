@@ -60,7 +60,7 @@ def merge_into(k,v,block):
             blocks.append(' from'+ block.split('from',1)[-1].split('set')[0] )
             logging.info('from block')
         if re.findall('where',block):
-            blocks.append('where' +block.split('from',1)[-1].split('set')[-1].split('where')[-1]+ "'")
+            blocks.append('where' +block.split('from',1)[-1].split('set')[-1].split('where')[-1]+ "`")
             logging.info('where block')
         as_block = conf_map['as_block']
         merge_sec = v.format(''.join(merge_block))

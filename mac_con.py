@@ -17,7 +17,7 @@ def create_macro(k,v,block):
         pd = list(filter(lambda x: k in re.sub(rm_space, ' ', x), block))[0].split('as', 1)
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
-        converted = v.format(macro_name[0].upper(),macro_name[1].upper())
+        converted = v.format(macro_name[0].strip().upper(),macro_name[1].strip().upper())
         logging.info(converted)
         return converted
     except Exception as err:
@@ -29,9 +29,9 @@ def merge_into(k,v,block):
     merge_block = []
     for i, ite in enumerate(merge):
         if re.findall('shiftstartdatetime', ite):
-            col_name = ite.split('+')[0]
+            col_name = ite.split('+')[0].strip()
             field = ''.join(k).split('\n')[i - 1].replace(',', '').strip()
-            update_col = conf_map['date_add'].format(field,col_name) + 'as ' +field +'_ts ,'
+            update_col = conf_map['date_add'].format(field,col_name) + ' as ' +field +'_ts ,'
             logging.info(update_col)
             merge_block.append(update_col+'\n')
         else:
@@ -45,14 +45,19 @@ def merge_into(k,v,block):
     if re.findall('set',block):
         blocks.append('set' + block.split('from',1)[-1].split('set')[-1].split('where')[0])
         logging.info('set block')
-    if re.findall('where',block):
-        blocks.append('where' +block.split('from',1)[-1].split('set')[-1].split('where')[-1])
-        logging.info('where block')
     if re.findall('from',block):
-        blocks.append(' from'+ block.split('from',1)[-1].split('set')[0] + "'")
+        blocks.append(' from'+ block.split('from',1)[-1].split('set')[0] )
         logging.info('from block')
-
-    converted = conf_map['as_block'] + v.format(''.join(merge_block)) + ';' +'\n\n'+ conf_map['sf_exe_m'] + '\n\n'+ ''.join(blocks)+'\n'+conf_map['sf_exe_b']+'\n\n'+ conf_map['sf_exe_e']
+    if re.findall('where',block):
+        blocks.append('where' +block.split('from',1)[-1].split('set')[-1].split('where')[-1]+ "'")
+        logging.info('where block')
+    as_block = conf_map['as_block']
+    merge_sec = v.format(''.join(merge_block))
+    exe_macro = conf_map['sf_exe_m']
+    ot_blocks = ''.join(blocks)
+    exe_ot = conf_map['sf_exe_b']
+    end =  conf_map['sf_exe_e']
+    converted = op_log+as_block+ merge_sec + ';' +'\n\n'+ exe_macro + '\n\n'+ ot_blocks+'\n'+exe_ot+'\n\n'+ end
     logging.info(converted)
     return converted
 
@@ -93,7 +98,6 @@ def query_processor(file):
         elif k == 'merge into':
             m_macro = merge_into(merge,v,non_merge)
             query_resp.append(m_macro)
-    query_resp.insert(0,op_log)
     with open(op_file , 'w') as f:
         for item in query_resp:
             f.write("%s\n" % item)

@@ -1,10 +1,10 @@
 import datetime
 
 
-change_header = '''* CREATE/CHANGE LOG : '''
-change_title = '''* DATE                  MOD BY                               GCC                           DESC'''
+change_header = '''// CREATE/CHANGE LOG : '''
+change_title = '''// DATE                  MOD BY                               GCC                           DESC'''
 change_content = '''{date}              {id}                          {version}                      {desc}'''
-change_tail = '''*     **********************************************************************************************'''
+change_tail = '''//     **********************************************************************************************'''
 
 change_date = str(datetime.datetime.today().date())
 change_id = 'TD_SF_Engine'

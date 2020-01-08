@@ -1,0 +1,136 @@
+--------------------------------------------------------------------------------
+
+
+
+"Request Text"
+
+create  macro edw_stage_016.m_lh2_enum_b
+
+as
+
+(
+
+merge into edw_target.lh2_enum_b as tgt 
+
+using 
+
+( 
+
+select  
+
+	stg.orig_src_id ,  
+
+	stg.site_code ,  
+
+	stg.enum_id ,  
+
+	stg.enumtypeid ,  
+
+	stg.idx ,  
+
+	coalesce(stg.description,' ') as description ,  
+
+	coalesce(stg.abbreviation,' ') as abbreviation ,  
+
+	stg.flags ,  
+
+	stg.src_change_id ,  
+
+	stg.dw_logical_delete_flag ,  
+
+	stg.dw_modify_ts ,  
+
+	stg.dw_load_ts   
+
+from   edw_stage_016.lh2_enum as stg     
+
+where stg.change_type in ('I','U')
+
+) as stg 
+
+on ( stg.site_code = tgt.site_code and 
+
+stg.enum_id = tgt.enum_id)
+
+
+
+when matched then 
+
+update set 
+
+	orig_src_id =  stg.orig_src_id , 
+
+	enumtypeid =  stg.enumtypeid , 
+
+	idx =  stg.idx , 
+
+	description =  stg.description , 
+
+	abbreviation =  stg.abbreviation , 
+
+	flags =  stg.flags , 
+
+	src_change_id =  stg.src_change_id , 
+
+	dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+
+	dw_modify_ts =  stg.dw_modify_ts 
+
+
+
+when not matched then 
+
+insert values (
+
+	stg.orig_src_id , 
+
+	stg.site_code , 
+
+	stg.enum_id , 
+
+	stg.enumtypeid , 
+
+	stg.idx , 
+
+	stg.description , 
+
+	stg.abbreviation , 
+
+	stg.flags , 
+
+	stg.src_change_id , 
+
+	stg.dw_logical_delete_flag , 
+
+	stg.dw_modify_ts , 
+
+	stg.dw_load_ts);
+
+--  step 2 ( for  deleted  records)
+
+--  it  is based on incrementaly  loaded records in  stage
+
+--  includes all the change type   ---   d
+
+update  edw_target.lh2_enum_b  
+
+from 
+
+edw_stage_016 .lh2_enum as stg 
+
+set 
+
+dw_logical_delete_flag = stg.dw_logical_delete_flag , 
+
+dw_modify_ts = stg. dw_modify_ts 
+
+where 
+
+stg.site_code = edw_target.lh2_enum_b.site_code and  
+
+stg.enum_id = edw_target.lh2_enum_b.enum_id and 
+
+stg.change_type ='D'   ;
+
+);
+

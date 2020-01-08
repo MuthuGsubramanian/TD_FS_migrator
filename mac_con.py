@@ -14,12 +14,11 @@ logging.basicConfig(
 def create_macro(k,v,block):
     try:
         rm_space = re.compile(r'\s+')
-        # clean = re.sub(rm_space, ' ', block)
-        # fg = list(filter(lambda x: k in re.sub(rm_space, ' ', x), block))
         pd = list(filter(lambda x: k in re.sub(rm_space, ' ', x), block))[0].split('as', 1)
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
         converted = v.format(macro_name[0].upper(),macro_name[1].upper())
+        logging.info(converted)
         return converted
     except Exception as err:
         print(err)
@@ -33,28 +32,29 @@ def merge_into(k,v,block):
             col_name = ite.split('+')[0]
             field = ''.join(k).split('\n')[i - 1].replace(',', '').strip()
             update_col = conf_map['date_add'].format(field,col_name) + 'as ' +field +'_ts ,'
+            logging.info(update_col)
             merge_block.append(update_col+'\n')
         else:
+            logging.info('No dateadd func necessary')
             merge_block.append(ite+'\n')
 
     blocks = []
     if re.findall('update', block):
         blocks.append('\nvar_sql_logical_delete_capture = ' +"'" + 'update' + block.split('from',1)[0].split('update')[-1])
+        logging.info('update block')
     if re.findall('set',block):
         blocks.append('set' + block.split('from',1)[-1].split('set')[-1].split('where')[0])
+        logging.info('set block')
     if re.findall('where',block):
         blocks.append('where' +block.split('from',1)[-1].split('set')[-1].split('where')[-1])
+        logging.info('where block')
     if re.findall('from',block):
         blocks.append(' from'+ block.split('from',1)[-1].split('set')[0] + "'")
+        logging.info('from block')
 
     converted = conf_map['as_block'] + v.format(''.join(merge_block)) + ';' +'\n\n'+ conf_map['sf_exe_m'] + '\n\n'+ ''.join(blocks)+'\n'+conf_map['sf_exe_b']+'\n\n'+ conf_map['sf_exe_e']
-
+    logging.info(converted)
     return converted
-    # else:
-    #     converted =conf_map['as_block']+ v.format(merge_block)+';' \
-    #            +'\n\n'+ conf_map['sf_exe_b'] + '\n\n' + block + conf_map['sf_exe_e']
-
-
 
 def new_keys(block):
     keyw = []
@@ -73,7 +73,6 @@ def new_keys(block):
     return resp_keys
 
 def query_processor(file):
-    rm_space = re.compile(r'\s+')
     with open(file, 'r') as inp:
         op = inp.readlines()
         mac = ''.join(op)
@@ -98,6 +97,7 @@ def query_processor(file):
     with open(op_file , 'w') as f:
         for item in query_resp:
             f.write("%s\n" % item)
+    logging.info('completed conversion for ' + file.split('\\')[-1].split('.')[0])
     new_keys(block)
         # else:
 
@@ -108,6 +108,7 @@ if __name__ == '__main__':
     for files in inp_list:
         file = src_path+files
         query_processor(file)
+    logging.info('completed')
     # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\files\macro\Teradata Actual Macro.txt')
 
 # ''.join(op[op.index('using \n'):op.index('when matched then \n')]).replace('\n','').replace('\t','')

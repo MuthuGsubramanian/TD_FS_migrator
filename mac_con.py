@@ -26,10 +26,16 @@ def create_macro(k,v,block):
 
 
 def merge_into(k,v,block):
-    merge_block = k
-    for i, ite in enumerate(''.join(block).split('\n')):
+    merge = k.split('\n')
+    merge_block = []
+    for i, ite in enumerate(merge):
         if re.findall('shiftstartdatetime', ite):
-            pass
+            col_name = ite.split('+')[0]
+            field = ''.join(k).split('\n')[i - 1].replace(',', '').strip()
+            update_col = conf_map['date_add'].format(field,col_name) + 'as ' +field +'_ts ,'
+            merge_block.append(update_col+'\n')
+        else:
+            merge_block.append(ite+'\n')
 
     blocks = []
     if re.findall('update', block):
@@ -41,8 +47,7 @@ def merge_into(k,v,block):
     if re.findall('from',block):
         blocks.append(' from'+ block.split('from',1)[-1].split('set')[0] + "'")
 
-    converted = conf_map['as_block'] + v.format(merge_block) + ';' + conf_map['sf_exe_m'] + '\n\n' \
-               ''.join(blocks)+'\n'+conf_map['sf_exe_b']+'\n\n'+ conf_map['sf_exe_e']
+    converted = conf_map['as_block'] + v.format(''.join(merge_block)) + ';' +'\n\n'+ conf_map['sf_exe_m'] + '\n\n'+ ''.join(blocks)+'\n'+conf_map['sf_exe_b']+'\n\n'+ conf_map['sf_exe_e']
 
     return converted
     # else:

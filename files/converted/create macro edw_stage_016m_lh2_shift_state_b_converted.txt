@@ -1,0 +1,189 @@
+CREATE OR REPLACE PROCEDURE "EDW_STAGE_016"."M_LH2_SHIFT_STATE_B"()
+RETURNS VARCHAR(16777216)
+LANGUAGE JAVASCRIPT
+STRICT
+EXECUTE AS OWNER// CREATE/CHANGE LOG : 
+// DATE                  MOD BY                               GCC                           DESC
+2020-01-09              TD_SF_Engine                          initial                      macro
+//     **********************************************************************************************
+
+AS
+ $$
+try {var_sql_merge_base = `merge into edw_target.lh2_shift_state_b as tgt 
+using 
+( 
+select  
+ stg.orig_src_id ,  
+ stg.site_code ,  
+ stg.shift_state_id ,  
+ to_date(trim(substr(cast (stg.shiftid as varchar(30)),1,length(cast (stg.shiftid as varchar(30)))-3)),'yymmdd') as shiftdate ,  
+ stg.dbprevious ,  
+ stg.dbnext ,  
+ stg.dbversion ,  
+ stg.shiftid ,  
+ coalesce(stg.shift_dbname,' ') as shift_dbname ,  
+ stg.dbkey ,  
+ coalesce(stg.fieldid,' ') as fieldid ,  
+ stg.fieldeqmt ,  
+ stg.fieldauxeqmt ,  
+ stg.fieldtime ,  
+dateadd('second', stg.fieldtime, cast(cast(shift_info.shiftstartdatetime) as stg.fieldtime_ts ,
+ stg.fieldreason ,  
+ stg.fieldstatus ,  
+ coalesce(stg.fieldcomment,' ') as fieldcomment ,  
+ stg.fieldreasonrec ,  
+ stg.fieldoper ,  
+ stg.fieldaudit ,  
+ stg.fieldsubcode ,  
+ stg.fieldsubcode2 ,  
+ coalesce(stg.fieldsituation,' ') as fieldsituation ,  
+ stg.fielduser ,  
+ stg.fieldmaintstart ,  
+ stg.fieldmaintpropose ,  
+ stg.fieldwarranty ,  
+ stg.fieldgpsx ,  
+ stg.fieldgpsy ,  
+ stg.fieldgpsstat ,  
+ stg.fieldgpshead ,  
+ stg.fieldgpsvel ,  
+ stg.fieldenghr ,  
+ stg.fieldenghr2 ,  
+ stg.fieldisauxil ,  
+ coalesce(stg.fieldpmid,' ') as fieldpmid ,  
+ stg.src_change_id ,  
+ stg.dw_logical_delete_flag ,  
+ stg.dw_modify_ts ,  
+ stg.dw_load_ts   
+from   edw_stage_016.lh2_shift_state as stg 
+left outer join pddw.lh2_shift_info shift_info
+on (stg.site_code = shift_info.site_code and 
+stg.shiftid = shift_info.shiftid )   
+where stg.change_type in ('I','U')
+) as stg 
+on ( stg.site_code = tgt.site_code and 
+stg.shift_state_id = tgt.shift_state_id and 
+stg.shiftid = tgt.shiftid  and 
+stg.shiftdate =  tgt.shiftdate )
+
+when matched then 
+update set 
+ orig_src_id =  stg.orig_src_id , 
+ dbprevious =  stg.dbprevious , 
+ dbnext =  stg.dbnext , 
+ dbversion =  stg.dbversion , 
+ shift_dbname =  stg.shift_dbname , 
+ dbkey =  stg.dbkey , 
+ fieldid =  stg.fieldid , 
+ fieldeqmt =  stg.fieldeqmt , 
+ fieldauxeqmt =  stg.fieldauxeqmt , 
+ fieldtime =  stg.fieldtime , 
+ fieldtime_ts =  stg.fieldtime_ts , 
+ fieldreason =  stg.fieldreason , 
+ fieldstatus =  stg.fieldstatus , 
+ fieldcomment =  stg.fieldcomment , 
+ fieldreasonrec =  stg.fieldreasonrec , 
+ fieldoper =  stg.fieldoper , 
+ fieldaudit =  stg.fieldaudit , 
+ fieldsubcode =  stg.fieldsubcode , 
+ fieldsubcode2 =  stg.fieldsubcode2 , 
+ fieldsituation =  stg.fieldsituation , 
+ fielduser =  stg.fielduser , 
+ fieldmaintstart =  stg.fieldmaintstart , 
+ fieldmaintpropose =  stg.fieldmaintpropose , 
+ fieldwarranty =  stg.fieldwarranty , 
+ fieldgpsx =  stg.fieldgpsx , 
+ fieldgpsy =  stg.fieldgpsy , 
+ fieldgpsstat =  stg.fieldgpsstat , 
+ fieldgpshead =  stg.fieldgpshead , 
+ fieldgpsvel =  stg.fieldgpsvel , 
+ fieldenghr =  stg.fieldenghr , 
+ fieldenghr2 =  stg.fieldenghr2 , 
+ fieldisauxil =  stg.fieldisauxil , 
+ fieldpmid =  stg.fieldpmid , 
+ src_change_id =  stg.src_change_id , 
+ dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+ dw_modify_ts =  stg.dw_modify_ts 
+
+when not matched then 
+insert values (
+  stg.orig_src_id , 
+  stg.site_code , 
+  stg.shift_state_id , 
+  stg.shiftdate , 
+  stg.dbprevious , 
+  stg.dbnext , 
+  stg.dbversion , 
+  stg.shiftid , 
+  stg.shift_dbname , 
+  stg.dbkey , 
+  stg.fieldid , 
+  stg.fieldeqmt , 
+  stg.fieldauxeqmt , 
+  stg.fieldtime , 
+  stg.fieldtime_ts , 
+  stg.fieldreason , 
+  stg.fieldstatus , 
+  stg.fieldcomment , 
+  stg.fieldreasonrec , 
+  stg.fieldoper , 
+  stg.fieldaudit , 
+  stg.fieldsubcode , 
+  stg.fieldsubcode2 , 
+  stg.fieldsituation , 
+  stg.fielduser , 
+  stg.fieldmaintstart , 
+  stg.fieldmaintpropose , 
+  stg.fieldwarranty , 
+  stg.fieldgpsx , 
+  stg.fieldgpsy , 
+  stg.fieldgpsstat , 
+  stg.fieldgpshead , 
+  stg.fieldgpsvel , 
+  stg.fieldenghr , 
+  stg.fieldenghr2 , 
+  stg.fieldisauxil , 
+  stg.fieldpmid , 
+  stg.src_change_id , 
+  stg.dw_logical_delete_flag , 
+  stg.dw_modify_ts , 
+  stg.dw_load_ts
+';
+
+snowflake.execute( {sqlText: var_sql_merge_base + ";"} ); 
+
+
+var_sql_logical_delete_capture = 'update  edw_target.lh2_shift_state_b  
+set 
+dw_logical_delete_flag = stg.dw_logical_delete_flag , 
+dw_modify_ts = stg. dw_modify_ts 
+ from 
+( select stg.site_code , 
+stg.shift_state_id ,   
+case  when stg.change_type in('D')     then
+                      case 
+                      when shift_info.shiftdate<(current_date-170) then 'A' 
+                      else 'Y' ---handles  regular delete 
+                      end               
+    else 'U'---- for change type not in (i,u,d)
+end as dw_logical_delete_flag,
+stg.dw_modify_ts,
+stg.change_type
+from edw_stage_016.lh2_shift_state stg 
+left outer join pddw.lh2_shift_info shift_info
+on (stg.site_code = shift_info.site_code and 
+cast(substr(trim(stg.shift_state_id),1,9) as integer) = shift_info.shiftid)
+) as stg 
+where 
+stg.site_code = edw_target.lh2_shift_state_b.site_code and  
+stg.shift_state_id = edw_target.lh2_shift_state_b.shift_state_id and 
+stg.change_type ='D' ;
+);
+`
+snowflake.execute( {sqlText: var_sql_logical_delete_capture + ";"} ); 
+
+ }
+catch (err)
+     {
+     return "Failed: " + err;   
+     }
+     $$;

@@ -1,0 +1,140 @@
+CREATE OR REPLACE PROCEDURE "EDW_STAGE_016"."M_LH2_PIT_RE"()
+RETURNS VARCHAR(16777216)
+LANGUAGE JAVASCRIPT
+STRICT
+EXECUTE AS OWNER// CREATE/CHANGE LOG : 
+// DATE                  MOD BY                               GCC                           DESC
+2020-01-09              TD_SF_Engine                          initial                      macro
+//     **********************************************************************************************
+
+AS
+ $$
+try {var_sql_merge_base = `merge into edw_target.lh2_pit_reason_b as tgt 
+using 
+( 
+select  
+ stg.orig_src_id ,  
+ stg.site_code ,  
+ stg.status ,  
+ stg.pit_reason_id ,  
+ stg.dbprevious ,  
+ stg.dbnext ,  
+ stg.dbversion ,  
+ coalesce(stg.pit_dbname,' ') as pit_dbname ,  
+ stg.dbkey ,  
+ coalesce(stg.fieldid,' ') as fieldid ,  
+ stg.fielddelaytime ,  
+ stg.fieldcategory ,  
+ coalesce(stg.fieldname,' ') as fieldname ,  
+ stg.fieldmainttime ,  
+ stg.fieldauto ,  
+ stg.fielddfct ,  
+ stg.fieldgcincl ,  
+ coalesce(stg.fieldaltname,' ') as fieldaltname ,  
+ stg.fieldexpectdur ,  
+ stg.fieldtask ,  
+ stg.fieldlrincl ,  
+ coalesce(stg.fieldicon,' ') as fieldicon ,  
+ stg.fieldftype ,  
+ stg.dw_logical_delete_flag ,  
+ stg.dw_modify_ts ,  
+ stg.dw_load_ts   
+from   edw_stage_016.lh2_pit_reason as stg 
+) as stg 
+on ( stg.site_code = tgt.site_code and 
+stg.status = tgt.status and 
+stg.fieldid = tgt.fieldid)
+
+when matched then 
+update set 
+	orig_src_id =  stg.orig_src_id , 
+	pit_reason_id =  stg.pit_reason_id , 
+	dbprevious =  stg.dbprevious , 
+	dbnext =  stg.dbnext , 
+	dbversion =  stg.dbversion , 
+	pit_dbname =  stg.pit_dbname , 
+	dbkey =  stg.dbkey , 
+	fielddelaytime =  stg.fielddelaytime , 
+	fieldcategory =  stg.fieldcategory , 
+	fieldname =  stg.fieldname , 
+	fieldmainttime =  stg.fieldmainttime , 
+	fieldauto =  stg.fieldauto , 
+	fielddfct =  stg.fielddfct , 
+	fieldgcincl =  stg.fieldgcincl , 
+	fieldaltname =  stg.fieldaltname , 
+	fieldexpectdur =  stg.fieldexpectdur , 
+	fieldtask =  stg.fieldtask , 
+	fieldlrincl =  stg.fieldlrincl , 
+	fieldicon =  stg.fieldicon , 
+	fieldftype =  stg.fieldftype , 
+	dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+	dw_modify_ts =  stg.dw_modify_ts 
+
+when not matched then 
+insert values (
+	stg.orig_src_id , 
+	stg.site_code , 
+	stg.status , 
+	stg.pit_reason_id , 
+	stg.dbprevious , 
+	stg.dbnext , 
+	stg.dbversion , 
+	stg.pit_dbname , 
+	stg.dbkey , 
+	stg.fieldid , 
+	stg.fielddelaytime , 
+	stg.fieldcategory , 
+	stg.fieldname , 
+	stg.fieldmainttime , 
+	stg.fieldauto , 
+	stg.fielddfct , 
+	stg.fieldgcincl , 
+	stg.fieldaltname , 
+	stg.fieldexpectdur , 
+	stg.fieldtask , 
+	stg.fieldlrincl , 
+	stg.fieldicon , 
+	stg.fieldftype , 
+	stg.dw_logical_delete_flag , 
+	stg.dw_modify_ts , 
+	stg.dw_load_ts
+';
+
+snowflake.execute( {sqlText: var_sql_merge_base + ";"} ); 
+
+
+var_sql_logical_delete_capture = 'update edw_target.lh2_pit_reason_b  as tgt
+set dw_logical_delete_flag ='Y',
+  	  dw_modify_ts =  (select max(dw_modify_ts)  set edw_stage_016 .lh2_pit_reason)
+ from edw_stage_016 .lh2_pit_reason)
+where 
+tgt.dw_logical_delete_flag <>  'Y' 
+and not exists 
+      (
+      select 'X'
+      from edw_stage_016.lh2_pit_reason as stg
+      where  stg.site_code = tgt.site_code and  
+      stg.status = tgt.status and 
+      stg.fieldid = tgt.fieldid
+      )
+and  exists 
+     (
+     select 'X'
+     from edw_stage_016.lh2_pit_reason as stg
+     where  stg.site_code = tgt.site_code 
+     );
+ 
+);
+where  stg.site_code = tgt.site_code 
+     );
+ 
+);
+`
+snowflake.execute( {sqlText: var_sql_logical_delete_capture + ";"} ); 
+
+ }
+catch (err)
+     {
+     return "Failed: " + err;   
+     }
+     $$;

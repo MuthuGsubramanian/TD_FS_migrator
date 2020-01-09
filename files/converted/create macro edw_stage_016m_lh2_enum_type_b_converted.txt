@@ -1,0 +1,76 @@
+CREATE OR REPLACE PROCEDURE "EDW_STAGE_016"."M_LH2_ENUM_TYPE_B"()
+RETURNS VARCHAR(16777216)
+LANGUAGE JAVASCRIPT
+STRICT
+EXECUTE AS OWNER// CREATE/CHANGE LOG : 
+// DATE                  MOD BY                               GCC                           DESC
+2020-01-09              TD_SF_Engine                          initial                      macro
+//     **********************************************************************************************
+
+AS
+ $$
+try {var_sql_merge_base = `merge into edw_target.lh2_enum_type_b as tgt 
+using 
+( 
+	select  
+	orig_src_id ,  
+	site_code ,  
+	enum_type_id ,  
+	coalesce(enum_type_name,' ') as enum_type_name ,  
+	dw_logical_delete_flag ,  
+	dw_modify_ts ,  
+	dw_load_ts   
+	from  edw_stage_016.lh2_enum_type 
+) as stg 
+on ( stg.site_code = tgt.site_code and 
+stg.enum_type_id = tgt.enum_type_id)
+
+when matched then 
+update set 
+	orig_src_id =  stg.orig_src_id , 
+	enum_type_name =  stg.enum_type_name , 
+	dw_logical_delete_flag =  stg.dw_logical_delete_flag , 
+	dw_modify_ts =  stg.dw_modify_ts 
+
+when not matched then 
+insert values (
+	stg.orig_src_id , 
+	stg.site_code , 
+	stg.enum_type_id , 
+	stg.enum_type_name , 
+	stg.dw_logical_delete_flag , 
+	stg.dw_modify_ts , 
+	stg.dw_load_ts
+';
+
+snowflake.execute( {sqlText: var_sql_merge_base + ";"} ); 
+
+
+var_sql_logical_delete_capture = 'update edw_target.lh2_enum_type_b  tgt
+set
+dw_logical_delete_flag =  'Y' , 
+dw_modify_ts =  (select max(dw_modify_ts) set edw_stage_016.lh2_enum_type)
+ from edw_stage_016.lh2_enum_type)
+where 
+tgt.dw_logical_delete_flag <>  'Y' 
+and not exists 
+      (select 'X'  from edw_stage_016.lh2_enum_type stg 
+      where stg. site_code = tgt.site_code
+      and stg.enum_type_id = tgt.enum_type_id)       
+and  exists 
+      (select 'X'  from edw_stage_016.lh2_enum_type stg 
+      where stg. site_code = tgt.site_code
+      ) ;
+);
+where stg. site_code = tgt.site_code
+      ) ;
+);
+`
+snowflake.execute( {sqlText: var_sql_logical_delete_capture + ";"} ); 
+
+ }
+catch (err)
+     {
+     return "Failed: " + err;   
+     }
+     $$;

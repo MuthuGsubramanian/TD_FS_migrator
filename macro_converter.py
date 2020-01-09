@@ -17,10 +17,10 @@ def create_macro(k,v,block):
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
         converted = v.format(macro_name[0].strip().upper(),macro_name[1].strip().upper())
-        logging.info(converted)
+        # logging.info(converted)
         return converted
     except Exception as err:
-        print(err)
+        logging.info(err)
 
 def replace_macro(k,v,block):
     try:
@@ -29,10 +29,10 @@ def replace_macro(k,v,block):
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
         converted = v.format(macro_name[0].strip().upper(),macro_name[1].strip().upper())
-        logging.info(converted)
+        # logging.info(converted)
         return converted
     except Exception as err:
-        print(err)
+        logging.info(err)
 
 def merge_into(k,v,block):
     try:
@@ -46,12 +46,12 @@ def merge_into(k,v,block):
                 logging.info(update_col)
                 merge_block.append(update_col+'\n')
             else:
-                logging.info('No dateadd func necessary')
+                # logging.info('No dateadd func necessary')
                 merge_block.append(ite+'\n')
 
         blocks = []
         if re.findall('update', block):
-            blocks.append('\nvar_sql_logical_delete_capture = ' +"'" + 'update' + block.split('from',1)[0].split('update')[-1])
+            blocks.append('\nvar_sql_logical_delete_capture = ' +"`" + 'update' + block.split('from',1)[0].split('update')[-1])
             logging.info('update block')
         if re.findall('set',block):
             blocks.append('set' + block.split('from',1)[-1].split('set')[-1].split('where')[0])
@@ -69,10 +69,10 @@ def merge_into(k,v,block):
         exe_ot = conf_map['sf_exe_b']
         end =  conf_map['sf_exe_e']
         converted = op_log+as_block+ merge_sec + ';' +'\n\n'+ exe_macro + '\n\n'+ ot_blocks+'\n'+exe_ot+'\n\n'+ end
-        logging.info(converted)
+        # logging.info(converted)
         return converted
     except Exception as err:
-        print(err)
+        logging.info(err)
 
 def new_keys(block):
     keyw = []
@@ -91,6 +91,7 @@ def new_keys(block):
     return resp_keys
 
 def query_processor(file):
+    rm_space = re.compile(r'\s+')
     with open(file, 'r') as inp:
         op = inp.readlines()
         mac = ''.join(op)
@@ -100,24 +101,28 @@ def query_processor(file):
             cleaned.append(items)
     clean = ' '.join(cleaned)
     block = ''.join(clean.split(');')).replace('\n','\n ').replace('"','').split(';')
-    op_file = file.split('\\')[-1].split('.')[0]+'_converted.txt'
+    op_file = file.split('\\')[-1].split('.')
+    del (op_file[-1])
+    op_file_name = ''.join(op_file).strip() + '_converted.txt'
     query_resp = []
     merge = 'merge' + mac.split('merge')[1].split(');',1)[0]
     non_merge = mac.split('merge')[1].split(');',1)[1]
     for k, v in conf_map.items():
         if k == 'create macro':
-            c_macro = create_macro(k, v,block)
-            query_resp.append(c_macro)
+            if list(filter(lambda x: 'create macro' in re.sub(rm_space, ' ', x), block)):
+                c_macro = create_macro(k, v,block)
+                query_resp.append(c_macro)
         elif k == 'replace macro':
-            c_macro = replace_macro(k, v,block)
-            query_resp.append(c_macro)
+            if list(filter(lambda x: 'replace macro' in re.sub(rm_space, ' ', x), block)):
+                c_macro = replace_macro(k, v,block)
+                query_resp.append(c_macro)
         elif k == 'merge into':
             m_macro = merge_into(merge,v,non_merge)
             query_resp.append(m_macro)
-    with open(op_file , 'w') as f:
+    with open('files/converted/'+op_file_name , 'w') as f:
         for item in query_resp:
-            f.write("%s\n" % item)
-    logging.info('completed conversion for ' + file.split('\\')[-1].split('.')[0])
+            f.write("%s" % item)
+        logging.info('completed conversion for ' + file.split('\\')[-1])
     new_keys(block)
 
 if __name__ == '__main__':

@@ -1,22 +1,15 @@
+import itertools as it
 import re
-path = r'C:\Users\45444\PycharmProjects\TD_FS_migrator\TeradataActualPOCProc_macro.txt'
+filename= r'C:\Users\45444\PycharmProjects\TD_FS_migrator\TeradataActualPOCProc_macro.txt'
 rm_space = re.compile(r'\s+')
-with open(path, 'r') as inp:
-    d = inp.readlines()
-    splitted = []
-    for index,cont in enumerate(d):
-        if cont.startswith('-----'):
-            file_type = re.sub(rm_space, ' ', d[index+3])
-            # print(file_type)
-            if file_type.startswith('create macro') or file_type.startswith('replace macro'):
-                splitted.append(index)
-    ind_1, ind_2 = splitted[::2], splitted[1::2]
-    ind_dict = dict(zip(ind_1,ind_2))
-    for k,v in ind_dict.items():
-        root = "extracted\\"
-        file_name= re.sub(rm_space, ' ', d[k:v][3]).strip()+'.txt'
-        content = d[k:v]
-        with open(file_name, 'w') as f:
-            for item in content:
-                f.write("%s\n" % item)
+with open(filename,'r') as f:
+    for key,group in it.groupby(f,lambda line: line.startswith('---')):
+        if not key:
+            group = list(group)
+            macro_check = list(filter(lambda x: 'create macro' in re.sub(rm_space, ' ', x) or 'replace macro' in re.sub(rm_space, ' ', x), group))
 
+            if macro_check:
+                file_name = re.sub(rm_space, ' ', macro_check[0]).strip()+'.txt'
+                with open('C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\extracted\\'+file_name, 'w') as f:
+                    for item in group:
+                        f.write("%s" % item)

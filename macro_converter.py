@@ -68,7 +68,6 @@ def merge_into(k,v,block):
         exe_ot = conf_map['sf_exe_b']
         end =  conf_map['sf_exe_e']
         converted = '\n'+op_log+as_block+ merge_sec + ';' +'\n\n'+ exe_macro + '\n\n'+ ot_blocks+'\n'+exe_ot+'\n\n'+ end
-        # logging.info(converted)
         return converted
     except Exception as err:
         logging.info(err)

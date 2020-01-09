@@ -46,7 +46,6 @@ def merge_into(k,v,block):
                 logging.info(update_col)
                 merge_block.append(update_col+'\n')
             else:
-                # logging.info('No dateadd func necessary')
                 merge_block.append(ite+'\n')
 
         blocks = []

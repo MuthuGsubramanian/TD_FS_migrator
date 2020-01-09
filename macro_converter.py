@@ -67,7 +67,7 @@ def merge_into(k,v,block):
         ot_blocks = ''.join(blocks)
         exe_ot = conf_map['sf_exe_b']
         end =  conf_map['sf_exe_e']
-        converted = op_log+as_block+ merge_sec + ';' +'\n\n'+ exe_macro + '\n\n'+ ot_blocks+'\n'+exe_ot+'\n\n'+ end
+        converted = '\n'+op_log+as_block+ merge_sec + ';' +'\n\n'+ exe_macro + '\n\n'+ ot_blocks+'\n'+exe_ot+'\n\n'+ end
         # logging.info(converted)
         return converted
     except Exception as err:
@@ -126,7 +126,7 @@ def query_processor(file):
 
 if __name__ == '__main__':
 
-    src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\extracted\\"
+    src_path = "C:\\Users\\46904\\TD_FS_migrator\\files\\extracted\\"
     inp_list = os.listdir(src_path)
     for files in inp_list:
         file = src_path+files

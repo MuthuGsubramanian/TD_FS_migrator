@@ -1,12 +1,10 @@
 import os
 import re
 import logging
-from macro_coversion_config import *
+from view_conversion_config import *
 from change_log import *
 
 logging.basicConfig(
-    filename='logs.txt',
-    filemode='a',
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
@@ -19,7 +17,7 @@ def create_macro(k,v,block):
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
         converted = v.format(macro_name[0].strip().upper(),macro_name[1].strip().upper())
-        logging.info('create block converted')
+        # logging.info(converted)
         return converted
     except Exception as err:
         logging.info(err)
@@ -31,7 +29,7 @@ def replace_macro(k,v,block):
         mac_name = ''.join(list(filter(lambda x: k in re.sub(rm_space, ' ', x), pd))).split('macro')[-1].replace('\n', '')
         macro_name = mac_name.split('.')
         converted = v.format(macro_name[0].strip().upper(),macro_name[1].strip().upper())
-        logging.info('replace block converted')
+        # logging.info(converted)
         return converted
     except Exception as err:
         logging.info(err)
@@ -49,7 +47,7 @@ def merge_into(k,v,block):
                 merge_block.append(update_col+'\n')
             else:
                 merge_block.append(ite+'\n')
-        logging.info('merge block completed')
+
         blocks = []
         if re.findall('update', block):
             blocks.append('\nvar_sql_logical_delete_capture = ' +"`" + 'update' + block.split('from',1)[0].split('update')[-1])
@@ -74,29 +72,13 @@ def merge_into(k,v,block):
     except Exception as err:
         logging.info(err)
 
-def new_keys(block):
-    keyw = []
-    inp_keys = []
-    resp_keys = []
-    for i in block:
-        keyw.append(i.split(' ', 1)[0] + ' macro')
-    for kys in list(conf_map.keys()):
-        inp_keys.append(" ".join(kys.split()))
-    for h in keyw:
-        if h not in inp_keys:
-            resp_keys.append(list(filter(lambda x: h in x, block)))
-    with open('td_rs_new_keys.txt', 'w') as f:
-        for item in resp_keys:
-            f.write("%s\n" % item)
-    return resp_keys
 
-def query_processor(file,op_path):
+def query_processor(file):
     rm_space = re.compile(r'\s+')
     with open(file, 'r') as inp:
         op = inp.readlines()
         mac = ''.join(op)
     cleaned = []
-    logging.info('initated conversion for '+file.split('\\')[-1])
     for items in mac.split(' '):
         if len(items) >=1:
             cleaned.append(items)
@@ -106,36 +88,36 @@ def query_processor(file,op_path):
     del (op_file[-1])
     op_file_name = ''.join(op_file).strip() + '_converted.txt'
     query_resp = []
-    merge = 'merge' + mac.split('merge')[1].split(');',1)[0]
-    non_merge = mac.split('merge')[1].split(');',1)[1]
+    created = mac.split('select')
+    create_view = list(filter(lambda x: 'create' in x, created))[0].split('\n')
+
     for k, v in conf_map.items():
-        if k == 'create macro':
-            if list(filter(lambda x: 'create macro' in re.sub(rm_space, ' ', x), block)):
-                c_macro = create_macro(k, v,block)
-                query_resp.append(c_macro)
-        elif k == 'replace macro':
-            if list(filter(lambda x: 'replace macro' in re.sub(rm_space, ' ', x), block)):
-                c_macro = replace_macro(k, v,block)
-                query_resp.append(c_macro)
-        elif k == 'merge into':
-            m_macro = merge_into(merge,v,non_merge)
-            query_resp.append(m_macro)
-    with open(str(op_path)+op_file_name , 'w') as f:
+        if k == 'create view':
+            name = None
+            view_name = list(filter(lambda x: 'create view' in re.sub(rm_space, ' ', x), create_view))
+            c_macro = view_name[0].split(' ')
+            for names in c_macro:
+                if '.' in names:
+                    name = names
+            db = 'FREEPORT'
+            f = conf_map['create view'].format(db,name)
+            query_resp.append(f)
+            sql = '\nAS \n' + 'select' + ''.join(created[1:])
+            query_resp.append(sql)
+
+    with open('files/converted/'+op_file_name , 'w') as f:
         for item in query_resp:
             f.write("%s" % item)
         logging.info('completed conversion for ' + file.split('\\')[-1])
-    new_keys(block)
 
 if __name__ == '__main__':
 
-    src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\extracted\\"
-    op_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\converted\\"
-    inp_list = os.listdir(src_path)
-    for files in inp_list:
-        file = src_path+files
-        query_processor(file,op_path)
-
-    logging.info('completed')
-    # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\files\macro\Teradata Actual Macro.txt')
+    # src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\extracted\\"
+    # inp_list = os.listdir(src_path)
+    # for files in inp_list:
+    #     file = src_path+files
+    #     query_processor(file)
+    # logging.info('completed')
+    query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\Teradata Actual View.txt')
 
 # ''.join(op[op.index('using \n'):op.index('when matched then \n')]).replace('\n','').replace('\t','')

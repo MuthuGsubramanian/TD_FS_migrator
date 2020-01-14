@@ -19,7 +19,7 @@ logging.info('create block converted')
 def proc_converter(content,file_name,op_dir):
     try:
         logging.info('--------------------------------')
-        logging.info('initated conversion for create or replace proc --'+file)
+        logging.info('initated conversion for create or replace proc --'+file_name)
 
         # with open(file, 'r') as inp:
         #     content = inp.read()

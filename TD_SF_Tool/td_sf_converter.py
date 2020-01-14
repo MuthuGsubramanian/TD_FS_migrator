@@ -1,9 +1,10 @@
 import os
+import re
 from tkinter import filedialog
 from tkinter import *
 from procedure_converter import proc_converter
-from TD_SF_Project.macro_converter import query_processor
-from TD_SF_Project.view_converter import view_processor
+from macro_converter import query_processor
+from view_converter import view_processor
 
 if __name__ == '__main__':
     #
@@ -31,6 +32,8 @@ if __name__ == '__main__':
             elif re.compile(r'replace view').search(re.sub(rm_space, ' ', mac.lower())):
                 view_processor(mac,file_name,dest_folder_selected)
             elif re.compile(r'create procedure').search(re.sub(rm_space, ' ', mac.lower())):
+                proc_converter(mac,file_name,dest_folder_selected)
+            elif re.compile(r'replace procedure').search(re.sub(rm_space, ' ', mac.lower())):
                 proc_converter(mac,file_name,dest_folder_selected)
             else:
                 print('False')

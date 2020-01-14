@@ -1,8 +1,8 @@
 
 from tkinter import *
 import logging
-from TD_SF_Project.macro_coversion_config import *
-from TD_SF_Project.change_log import *
+from macro_coversion_config import *
+from change_log import *
 
 logging.basicConfig(
     filename='logs.txt',

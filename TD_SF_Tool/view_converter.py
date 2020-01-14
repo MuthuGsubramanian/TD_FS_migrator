@@ -1,12 +1,16 @@
+import os
 import re
 import logging
-from TD_SF_Project.view_conversion_config import *
-from TD_SF_Project.change_log import *
+from view_conversion_config import *
+from change_log import *
 
 logging.basicConfig(
+    filename='logs.txt',
+    filemode='a',
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
+
 
 
 def create_macro(k,v,block):

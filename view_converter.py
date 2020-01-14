@@ -74,50 +74,58 @@ def merge_into(k,v,block):
 
 
 def query_processor(file):
-    rm_space = re.compile(r'\s+')
-    with open(file, 'r') as inp:
-        op = inp.readlines()
-        mac = ''.join(op)
-    cleaned = []
-    for items in mac.split(' '):
-        if len(items) >=1:
-            cleaned.append(items)
-    clean = ' '.join(cleaned)
-    block = ''.join(clean.split(');')).replace('\n','\n ').replace('"','').split(';')
-    op_file = file.split('\\')[-1].split('.')
-    del (op_file[-1])
-    op_file_name = ''.join(op_file).strip() + '_converted.txt'
-    query_resp = []
-    created = mac.split('select')
-    create_view = list(filter(lambda x: 'create' in x, created))[0].split('\n')
+    try:
+        rm_space = re.compile(r'\s+')
+        with open(file, 'r') as inp:
+            op = inp.readlines()
+            mac = ''.join(op)
+        cleaned = []
+        for items in mac.split(' '):
+            if len(items) >=1:
+                cleaned.append(items)
+        clean = ' '.join(cleaned)
+        block = ''.join(clean.split(');')).replace('\n','\n ').replace('"','').split(';')
+        op_file = file.split('\\')[-1].split('.')
+        del (op_file[-1])
+        op_file_name = ''.join(op_file).strip() + '_converted.txt'
+        query_resp = []
+        created = mac.split('select',1)
+        create_view = list(filter(lambda x: 'create' in x.lower() or 'replace' in x.lower(), created))[0].split('\n')
 
-    for k, v in conf_map.items():
-        if k == 'create view':
-            name = None
-            view_name = list(filter(lambda x: 'create view' in re.sub(rm_space, ' ', x), create_view))
-            c_macro = view_name[0].split(' ')
-            for names in c_macro:
-                if '.' in names:
-                    name = names
-            db = 'FREEPORT'
-            f = conf_map['create view'].format(db,name)
-            query_resp.append(f)
-            sql = '\nAS \n' + 'select' + ''.join(created[1:])
-            query_resp.append(sql)
+        for k, v in conf_map.items():
+            if k == 'create view':
+                name = None
+                view_name = list(filter(lambda x: 'CREATE SET' in re.sub(rm_space, ' ', x) or
+                                                  'CREATE VIEW' in re.sub(rm_space, ' ', x) or
+                                                  'create view' in re.sub(rm_space, ' ', x) or
+                                                  'replace view' in re.sub(rm_space, ' ', x),create_view))
+                c_macro = view_name[0].split(' ')
+                for names in c_macro:
+                    if '.' in names:
+                        name = names
+                db = 'FREEPORT'
+                f = conf_map['create view'].format(db,name)
+                query_resp.append(f)
+                sql = '\nAS \n' + 'select' + ''.join(created[1:])
+                query_resp.append(sql)
 
-    with open('files/converted/'+op_file_name , 'w') as f:
-        for item in query_resp:
-            f.write("%s" % item)
-        logging.info('completed conversion for ' + file.split('\\')[-1])
+        with open('files/converted/'+op_file_name , 'w') as f:
+            for item in query_resp:
+                f.write("%s" % item)
+            logging.info('completed conversion for ' + file.split('\\')[-1])
+    except Exception as error:
+        logging.info(error)
+
 
 if __name__ == '__main__':
 
-    # src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\extracted\\"
-    # inp_list = os.listdir(src_path)
-    # for files in inp_list:
-    #     file = src_path+files
-    #     query_processor(file)
-    # logging.info('completed')
-    query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\Teradata Actual View.txt')
+    src_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\views\\"
+    op_path = "C:\\Users\\45444\\PycharmProjects\\TD_FS_migrator\\files\\converted\\"
+    inp_list = os.listdir(src_path)
+    for files in inp_list:
+        file = src_path+files
+        query_processor(file)
+    logging.info('completed')
+    # query_processor(r'C:\Users\45444\PycharmProjects\TD_FS_migrator\Teradata Actual View.txt')
 
 # ''.join(op[op.index('using \n'):op.index('when matched then \n')]).replace('\n','').replace('\t','')

@@ -1,13 +1,13 @@
 import os
 import re
+from tool_conf import *
 from tkinter import filedialog
 from tkinter import *
 from procedure_converter import proc_converter
 from macro_converter import query_processor
 from view_converter import view_processor
 
-if __name__ == '__main__':
-    #
+def converter_engine():
     root = Tk()
     root.withdraw()
     src_folder_selected = filedialog.askdirectory(title = 'Choose the Source Directory')
@@ -37,3 +37,8 @@ if __name__ == '__main__':
                 proc_converter(mac,file_name,dest_folder_selected)
             else:
                 print('False')
+    return 'completed'
+
+if __name__ == '__main__':
+    i = converter_engine()
+    print(i)

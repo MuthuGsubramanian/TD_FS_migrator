@@ -1,12 +1,14 @@
 import os
+import datetime
+from tool_conf import *
 import re
 import logging
 from view_conversion_config import *
 from change_log import *
 
 logging.basicConfig(
-    filename='logs.txt',
-    filemode='a',
+    filename=log_file,
+    filemode='w',
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
@@ -79,13 +81,14 @@ def merge_into(k,v,block):
 def view_processor(cont,file_name,op_path):
     try:
         rm_space = re.compile(r'\s+')
-        mac = cont
+        # mac = cont
         cleaned = []
-        for items in mac.split(' '):
+        for items in cont.split(' '):
             if len(items) >=1:
                 cleaned.append(items)
-        clean = ' '.join(cleaned)
-        block = ''.join(clean.split(');')).replace('\n','\n ').replace('"','').split(';')
+        clean = ['"' + x + '"' if "#" in x else x for x in cleaned]
+        mac = ' '.join(clean)
+        # block = ''.join(clean.split(');')).replace('\n','\n ').replace('"','').split(';')
 
         op_file_name = file_name + '_converted.txt'
         query_resp = []

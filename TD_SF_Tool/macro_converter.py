@@ -1,12 +1,12 @@
-
+from tool_conf import *
 from tkinter import *
 import logging
 from macro_coversion_config import *
 from change_log import *
 
 logging.basicConfig(
-    filename='logs.txt',
-    filemode='a',
+    filename= log_file,
+    filemode='w+',
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')

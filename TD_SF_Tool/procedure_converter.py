@@ -23,9 +23,6 @@ def proc_converter(content,file_name,op_dir):
         logging.info('--------------------------------')
         logging.info('initated conversion for create or replace proc --'+file_name)
 
-        # with open(file, 'r') as inp:
-        #     content = inp.read()
-        # op_file = file.split('\\')[-1].split('.')[0]+'_converted.txt'
         op_file = op_dir +'/'+ file_name +'_converted.txt'
         print(op_file)
         #comment =  re.sub(r'/\*[\s\S]*?\*/',' ',content)
@@ -154,20 +151,3 @@ def proc_converter(content,file_name,op_dir):
     except Exception as Er:
         logging.info('Error --'+str(Er))
         print('Exception')
-        
-# if __name__ == '__main__':
-#      src_path = "D:\\Projects\\FMI\\Proc\\"
-#      inp_list = os.listdir(src_path)
-#      for files in inp_list:
-#          file = src_path+files
-#          #print(file)
-#          proc_converter(file)
-#          op_file = file.split('\\')[-1].split('.')[0]+'_converted.txt'
-#          op_file = "D:\\Projects\\FMI\\Converted\\" + op_file
-#          print(op_file)
-
-
-                  
-
-
-               

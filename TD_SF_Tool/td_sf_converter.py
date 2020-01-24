@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from tool_conf import *
 from tkinter import filedialog
 from tkinter import *
@@ -7,12 +8,20 @@ from procedure_converter import proc_converter
 from macro_converter import query_processor
 from view_converter import view_processor
 
+logging.basicConfig(
+    filename= log_file,
+    filemode='w+',
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+
 def converter_engine():
     root = Tk()
     root.withdraw()
     src_folder_selected = filedialog.askdirectory(title = 'Choose the Source Directory')
+    logging.info(str(src_folder_selected))
     dest_folder_selected = filedialog.askdirectory(title = 'Choose the destination Directory')
-
+    logging.info(str(dest_folder_selected))
     inp_list = os.listdir(src_folder_selected)
     for files in inp_list:
         file_name = files.replace('.txt','').replace('.sql','')

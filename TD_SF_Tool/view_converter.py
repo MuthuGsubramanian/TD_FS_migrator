@@ -92,7 +92,7 @@ def view_processor(cont,file_name,op_path):
 
         op_file_name = file_name + '_converted.txt'
         query_resp = []
-        created = mac.split('select',1)
+        created = re.split('select | SELECT | Select| \nselect | \nSELECT | \nSelect',mac,1)
         create_view = list(filter(lambda x: 'create' in x.lower() or 'replace' in x.lower(), created))[0].split('\n')
 
         for k, v in conf_map.items():
@@ -109,7 +109,7 @@ def view_processor(cont,file_name,op_path):
                 db = 'FREEPORT'
                 f = conf_map['create view'].format(db,name)
                 query_resp.append(f)
-                sql = '\nAS \n' + 'select' + ''.join(created[1:])
+                sql = '\nAS \n' + 'select\n' + ''.join(created[1:])
                 query_resp.append(sql)
 
         with open(op_path+'/'+op_file_name , 'w') as f:

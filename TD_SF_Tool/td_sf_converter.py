@@ -3,9 +3,10 @@ import re
 import logging
 from tool_conf import *
 from tkinter import filedialog
+from tkinter import messagebox
 from tkinter import *
 from procedure_converter import proc_converter
-from macro_converter import query_processor
+from macro_conv_new import query_processor
 from view_converter import view_processor
 
 logging.basicConfig(
@@ -46,6 +47,7 @@ def converter_engine():
                 proc_converter(mac,file_name,dest_folder_selected)
             else:
                 print('False')
+    messagebox.showinfo("Completed", "Conversion is completed, Kindly verify the destination folder for results")
     return 'completed'
 
 if __name__ == '__main__':

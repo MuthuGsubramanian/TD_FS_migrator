@@ -2,6 +2,7 @@ from tool_conf import *
 from tkinter import *
 import logging
 from macro_coversion_config import *
+from sql_funcs import *
 from change_log import *
 
 logging.basicConfig(
@@ -31,18 +32,7 @@ def merge_into(res):
             merge_var = '{' + 'sqlText:{0}'.format('var_sql_merge_base') + '}'
             merge_script = res.partition("merge")[1] + res.partition("merge")[2].partition(";")[0]
             exec_sf = conf_map['sf_exe_m'].format(merge_var)
-            merge_block = []
-            merge = merge_script.split('\n')
-            for i, ite in enumerate(merge):
-                if re.findall('shift_info.shiftstartdatetime', ite):
-                    col_name = ite.split('+')[0].strip()
-                    field = re.search(r'cast([^/]+)', ''.join(ite.split('+')[1])).group(1).replace('(','').strip()
-                    update_col = conf_map['date_add'].format(field,col_name) + ' as ' +field +'_ts ,'
-                    logging.info(update_col)
-                    merge_block.append(update_col+'\n')
-
-                else:
-                    merge_block.append(ite+'\n')
+            merge_block = shift_date_time(merge_script)
             merge_data = conf_map['merge_into'].format(''.join(merge_block)) + exec_sf
             logging.info('merge block completed')
             return merge_data,merge_script
@@ -53,6 +43,7 @@ def merge_into(res):
 
 
 def insert_block(script):
+
     if 'insert' in script and script.count('insert')==1:
         insert_var = '{' + 'sqlText:{0}'.format('var_sql_insert_base') + '}'
         insert_extract = script.partition("insert")[1]+script.partition("insert")[2].partition(");")[0]
@@ -62,6 +53,7 @@ def insert_block(script):
         return 'None'
 
 def select_block(script):
+
     if 'select' in script and script.count('select')==1:
         select_var = '{' + 'sqlText:{0}'.format('var_sql_select_base') + '}'
         select_extract = script.partition("select")[1]+script.partition("select")[2].partition(");")[0]
@@ -75,7 +67,7 @@ def update_block(block):
     try:
         if re.findall('update', block):
 
-            update = block.partition("update")[1] + block.partition("update")[2].partition("from")[0]
+            update = block.partition("update")[1] + block.partition("update")[2].partition("set")[0]
             update_script = update
             logging.info('update block')
             return update_script
@@ -117,9 +109,42 @@ def where_block(block):
     except Exception as error:
         logging.error(error)
 
+
+def update_flow(upd_block):
+    updates = []
+    update_script = []
+    update_collection = []
+    name = 'sql_update_var_{0}'
+
+
+    for i in upd_block.replace('\n', '').replace('\t', '').split('update'):
+        if not len(('update' + i)) < 10:
+            update_script.append('update' + i)
+    for itera ,script in enumerate(update_script):
+        update = update_block(script)
+        update_collection.append(update)
+        after_update_script = script.replace(update, '')
+        set_script = set_block(after_update_script)
+        update_collection.append(set_script + '\n')
+        after_set_script = after_update_script.replace(set_script, '')
+        from_script = from_block(after_set_script)
+        update_collection.append(from_script + '\n')
+        after_from_script = after_set_script.replace(from_script, '')
+        where_script = where_block(after_from_script)
+        update_collection.append(where_script + '\n')
+        collection = [value for value in update_collection if value != 'None\n']
+        var_name = name.format(itera)
+        update_var = '{' + 'sqlText:{0}'.format(var_name) + '}'
+        update_exe = conf_map['sf_exe_update'].format(update_var)
+        # sf_script.append(after_from_script)
+        update_qry = ''.join(collection)
+        update_group = conf_map['update'].format(var_name,update_qry) + update_exe +'\n'
+        updates.append(update_group)
+    return updates
+
+
 def query_processor(cont,file_name,op_path):
     try:
-        rm_space = re.compile(r'\s+')
         mac = cont.lower()
         cleaned = []
         logging.info('initated conversion for '+file_name)
@@ -132,6 +157,7 @@ def query_processor(cont,file_name,op_path):
         rest_script = ''
         op_file_name = file_name + '_converted.txt'
         sf_script = []
+        qry_cnt = 0
         if 'as' in script:
             script_block = script.split('as', 1)
             create = script_block[0]
@@ -142,34 +168,24 @@ def query_processor(cont,file_name,op_path):
         if rest_script.replace('\n','').replace('\t','').replace('\r','').startswith('(select' or 'select'):
             select_script = select_block(rest_script)
             sf_script.append(select_script + '\n')
+            qry_cnt = qry_cnt + 1
         if rest_script.replace('\n','').replace('\t','').replace('\r','').startswith('(insert' or 'insert'):
             insert_script = insert_block(rest_script)
             sf_script.append(insert_script + '\n')
-        elif 'BEGIN TRANSACTION'.lower() in rest_script:
-            no_script = conf_map['no_into'].format(rest_script)
+            qry_cnt = qry_cnt + 1
+        if 'BEGIN TRANSACTION'.lower() in rest_script:
+            body = rest_script.partition("begin transaction")[2].partition("end transaction")[0]
+            extracted = update_flow(body)
+            no_script = conf_map['no_into'].format(''.join(extracted))
             sf_script.append(no_script + '\n')
-        merge_block = merge_into(rest_script)
-        sf_script.append(merge_block[0] + '\n')
-        after_merge_script = rest_script.replace(merge_block[1], '')
-        update_collection = []
-        update = update_block(after_merge_script)
-        update_var = '{' + 'sqlText:{0}'.format('var_sql_update_base') + '}'
+            qry_cnt = qry_cnt + 1
+        if qry_cnt == 0:
+            merge_block = merge_into(rest_script)
+            sf_script.append(merge_block[0] + '\n')
+            after_merge_script = rest_script.replace(merge_block[1], '')
+            update_collection = update_flow(after_merge_script)
+            sf_script.append(''.join(update_collection))
 
-        update_collection.append(update)
-        after_update_script = after_merge_script.replace(update, '')
-        set_script = set_block(after_update_script)
-        update_collection.append(set_script + '\n')
-        after_set_script = after_update_script.replace(set_script, '')
-        from_script = from_block(after_set_script)
-        update_collection.append(from_script + '\n')
-        after_from_script = after_set_script.replace(from_script, '')
-        where_script = where_block(after_from_script)
-        update_collection.append(where_script + '\n')
-        update_script = conf_map['update'].format(''.join(update_collection))
-        sf_script.append(after_from_script)
-        sf_script.append(update_script)
-        update_exe = conf_map['sf_exe_update'].format(update_var)
-        sf_script.append('\n'+update_exe)
         with open(str(op_path)+'/'+op_file_name , 'w') as f:
             sf_script.append(conf_map['sf_exe_e'])
             sf_converted = [value for value in sf_script if value != 'None\n']
@@ -177,5 +193,6 @@ def query_processor(cont,file_name,op_path):
                 f.write("%s" % item)
             logging.info('completed conversion for ' + op_file_name)
             logging.info('^'*80)
+
     except Exception as error:
         logging.info(error)

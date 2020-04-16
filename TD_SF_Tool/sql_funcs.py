@@ -26,9 +26,9 @@ def merge_into(res):
             merge_script = res.partition("merge")[1] + res.partition("merge")[2].partition(";")[0]
             exec_sf = conf_map['sf_exe_m'].format(merge_var)
             merge_block = shift_date_time(merge_script)
-            merge_data = conf_map['merge_into'].format(''.join(merge_block)) + exec_sf
+            # merge_data = conf_map['merge_into'].format(''.join(merge_block)) + exec_sf
             logging.info('merge block completed')
-            return merge_data,merge_script
+            return merge_block,merge_script
         else:
             return ['None','None']
     except Exception as error:
@@ -37,7 +37,7 @@ def merge_into(res):
 
 def insert_block(script):
 
-    if 'insert' in script and script.count('insert')==1:
+    if 'insert' in script:
         insert_var = '{' + 'sqlText:{0}'.format('var_sql_insert_base') + '}'
         insert_extract = script.partition("insert")[1]+script.partition("insert")[2].partition(");")[0]
         insert_script = conf_map['insert_into'].format(insert_extract) + conf_map['sf_exe_m'].format(insert_var)
@@ -47,7 +47,7 @@ def insert_block(script):
 
 def select_block(script):
 
-    if 'select' in script and script.count('select')==1:
+    if 'select' in script:
         select_var = '{' + 'sqlText:{0}'.format('var_sql_select_base') + '}'
         select_extract = script.partition("select")[1]+script.partition("select")[2].partition(");")[0]
         select_script = conf_map['select'].format(select_extract)+ conf_map['sf_exe_m'].format(select_var)

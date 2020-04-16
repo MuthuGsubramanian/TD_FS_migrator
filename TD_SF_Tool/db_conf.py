@@ -1,7 +1,7 @@
 import os
 
 db_sf = {
-    'sf_user': os.getlogin(),
+    'sf_user': 'mgnanagu',
     'sf_pwd':'Nmnesan*11',
     'sf_acct': 'fcx.west-us-2.azure',
     'sf_wareh':'DEMO_WH',
@@ -17,6 +17,6 @@ db_td = {
 
 db_hv = {
     'hv_host': "adcp22nxhwx10.fmi.com",
-    'hv_user': os.getlogin(),
+    'hv_user': 'mgnanagu',
     'hv_pwd': 'Nmnesan*11'
 }
